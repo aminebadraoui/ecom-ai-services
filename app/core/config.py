@@ -22,5 +22,6 @@ class Settings(BaseSettings):
     
     class Config:
         env_file = ".env"
+        extra = "allow"  # Allow extra fields from Coolify environment
 
 settings = Settings() 
