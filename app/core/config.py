@@ -13,13 +13,11 @@ class Settings(BaseSettings):
     REDIS_HOST: str = "redis"
     REDIS_PORT: int = 6379
     REDIS_DB: int = 0
-    REDIS_PASSWORD: Optional[str] = os.environ.get("REDIS_PASSWORD")
+    REDIS_PASSWORD: str = "Zoni160513@1"
     
     @property
     def REDIS_URL(self) -> str:
-        if self.REDIS_PASSWORD:
-            return f"redis://:{self.REDIS_PASSWORD}@{self.REDIS_HOST}:{self.REDIS_PORT}/{self.REDIS_DB}"
-        return f"redis://{self.REDIS_HOST}:{self.REDIS_PORT}/{self.REDIS_DB}"
+        return f"redis://:{self.REDIS_PASSWORD}@{self.REDIS_HOST}:{self.REDIS_PORT}/{self.REDIS_DB}"
     
     @property
     def CELERY_BROKER_URL(self) -> str:

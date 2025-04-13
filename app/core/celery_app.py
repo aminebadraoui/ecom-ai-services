@@ -15,6 +15,7 @@ celery_app = Celery(
         'socket_connect_timeout': 5,
         'socket_timeout': 5,
         'retry_on_timeout': True,
+        'password': settings.REDIS_PASSWORD,
     },
     redis_socket_timeout=5,
     redis_socket_connect_timeout=5,
