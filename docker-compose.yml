@@ -5,9 +5,7 @@ services:
     image: redis:latest
     ports:
       - "6379:6379"
-    volumes:
-      - redis_data:/data
-    command: redis-server --bind 0.0.0.0 --protected-mode no --save "" --appendonly no --maxmemory 256mb --maxmemory-policy allkeys-lru
+    command: redis-server --bind 0.0.0.0 --protected-mode no --save "" --appendonly no --maxmemory 256mb --maxmemory-policy allkeys-lru --dir /tmp
     restart: unless-stopped
     networks:
       - app-network
@@ -44,6 +42,3 @@ services:
 networks:
   app-network:
     driver: bridge
-
-volumes:
-  redis_data:
