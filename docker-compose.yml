@@ -3,7 +3,7 @@ version: '3.8'
 services:
   redis:
     image: redis:7.2-alpine
-    command: redis-server --bind 0.0.0.0 --protected-mode no --requirepass "Zoni160513@1" --user default on >Zoni160513@1 ~* &* +@all
+    command: redis-server --bind 0.0.0.0 --protected-mode no --requirepass "Zoni160513@1"
     ports:
       - "6379:6379"
     healthcheck:
