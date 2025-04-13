@@ -7,8 +7,7 @@ services:
       - "6379:6379"
     volumes:
       - redis_data:/data
-      - ./redis.conf:/usr/local/etc/redis/redis.conf
-    command: redis-server /usr/local/etc/redis/redis.conf
+    command: redis-server --bind 0.0.0.0 --protected-mode no --maxmemory 256mb --maxmemory-policy allkeys-lru --save "" --appendonly no --tcp-keepalive 300 --timeout 0
     healthcheck:
       test: [ "CMD", "redis-cli", "ping" ]
       interval: 10s
