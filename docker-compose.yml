@@ -3,11 +3,11 @@ version: '3.8'
 services:
   redis:
     image: redis:7.2-alpine
-    command: redis-server --bind 0.0.0.0 --protected-mode no
+    command: redis-server --bind 0.0.0.0 --protected-mode no --requirepass "Zoni160513@1"
     ports:
       - "6379:6379"
     healthcheck:
-      test: [ "CMD", "redis-cli", "ping" ]
+      test: [ "CMD", "redis-cli", "-a", "Zoni160513@1", "ping" ]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -23,6 +23,7 @@ services:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - REDIS_DB=0
+      - REDIS_PASSWORD=Zoni160513@1
       - PYTHONPATH=/app
     depends_on:
       redis:
@@ -40,6 +41,7 @@ services:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - REDIS_DB=0
+      - REDIS_PASSWORD=Zoni160513@1
       - PYTHONPATH=/app
     depends_on:
       redis:
