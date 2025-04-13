@@ -7,7 +7,8 @@ services:
       - "6379:6379"
     volumes:
       - redis_data:/data
-    command: redis-server --bind 0.0.0.0 --protected-mode no
+    command: >
+      sh -c "sysctl vm.overcommit_memory=1 && redis-server --bind 0.0.0.0 --protected-mode no --save '' --appendonly no"
     restart: unless-stopped
     networks:
       - app-network
