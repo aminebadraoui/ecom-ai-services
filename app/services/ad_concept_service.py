@@ -30,6 +30,7 @@ async def process_extract_ad_concept(image_url: str, task_id: str):
     """Process an ad concept extraction request and store the result"""
     try:
         # Use multimodal input with the image URL
+        print(f"Processing ad concept extraction for image URL: {image_url}")
         result = await ad_concept_agent.run([
             "Analyze this product image and provide a detailed structured description.",
             ImageUrl(url=image_url)
