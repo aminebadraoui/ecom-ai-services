@@ -18,7 +18,7 @@ services:
       context: .
       dockerfile: Dockerfile
     working_dir: /app
-    command: celery -A app.core.celery_app worker --loglevel=info --concurrency=1
+    command: celery -A app.core.celery_app:celery_app worker --loglevel=info --concurrency=1
     environment:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
