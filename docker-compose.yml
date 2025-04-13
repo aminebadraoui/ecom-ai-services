@@ -5,9 +5,7 @@ services:
     image: redis:latest
     ports:
       - "6379:6379"
-    command: redis-server --bind 0.0.0.0 --protected-mode no --save "" --appendonly no --maxmemory 256mb --maxmemory-policy allkeys-lru --dir /tmp --requirepass "Zoni160513@1"
-    environment:
-      - REDIS_PASSWORD=Zoni160513@1
+    command: redis-server --bind 0.0.0.0 --protected-mode no --save "" --appendonly no --maxmemory 256mb --maxmemory-policy allkeys-lru --dir /tmp
     restart: unless-stopped
     networks:
       - app-network
@@ -17,7 +15,6 @@ services:
     command: python worker.py
     environment:
       - REDIS_HOST=redis
-      - REDIS_PASSWORD=Zoni160513@1
     env_file:
       - .env
     depends_on:
@@ -33,7 +30,6 @@ services:
       - "3006:8000"
     environment:
       - REDIS_HOST=redis
-      - REDIS_PASSWORD=Zoni160513@1
     env_file:
       - .env
     depends_on:

@@ -10,15 +10,12 @@ class Settings(BaseSettings):
     OPENAI_API_KEY: Optional[str] = os.environ.get("OPENAI_API_KEY")
     
     # Redis settings
-    REDIS_HOST: str = os.environ.get("REDIS_HOST", "localhost")
-    REDIS_PORT: int = int(os.environ.get("REDIS_PORT", "6379"))
-    REDIS_DB: int = int(os.environ.get("REDIS_DB", "0"))
-    REDIS_PASSWORD: Optional[str] = os.environ.get("REDIS_PASSWORD")
+    REDIS_HOST: str = "redis"
+    REDIS_PORT: int = 6379
+    REDIS_DB: int = 0
     
     @property
     def REDIS_URL(self) -> str:
-        if self.REDIS_PASSWORD:
-            return f"redis://:{self.REDIS_PASSWORD}@{self.REDIS_HOST}:{self.REDIS_PORT}/{self.REDIS_DB}"
         return f"redis://{self.REDIS_HOST}:{self.REDIS_PORT}/{self.REDIS_DB}"
     
     class Config:
