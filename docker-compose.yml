@@ -17,11 +17,13 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+    working_dir: /app
     command: celery -A app.core.celery_app worker --loglevel=info --concurrency=1
     environment:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - REDIS_DB=0
+      - PYTHONPATH=/app
     depends_on:
       redis:
         condition: service_healthy
@@ -30,6 +32,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+    working_dir: /app
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000
     ports:
       - "5000:8000"
@@ -37,6 +40,7 @@ services:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - REDIS_DB=0
+      - PYTHONPATH=/app
     depends_on:
       redis:
         condition: service_healthy

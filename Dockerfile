@@ -16,13 +16,12 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy application code
 COPY . .
 
+# Set environment variables
+ENV PYTHONPATH=/app
+
 # Create a non-root user
 RUN useradd -m appuser
 USER appuser
-
-# Set environment variables
-ENV PYTHONPATH=/app
-ENV PYTHONUNBUFFERED=1
 
 # Expose port
 EXPOSE 8000
