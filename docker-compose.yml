@@ -7,12 +7,13 @@ services:
       - "6379:6379"
     volumes:
       - redis_data:/data
-    command: redis-server --bind 0.0.0.0 --protected-mode no --maxmemory 256mb --maxmemory-policy allkeys-lru --save "" --appendonly no --tcp-keepalive 300 --timeout 0
+    command: redis-server --bind 0.0.0.0 --protected-mode no
     healthcheck:
       test: [ "CMD", "redis-cli", "ping" ]
       interval: 10s
       timeout: 5s
       retries: 3
+      start_period: 30s
     restart: unless-stopped
     networks:
       - app-network
