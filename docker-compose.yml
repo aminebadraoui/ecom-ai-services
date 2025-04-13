@@ -2,42 +2,46 @@ version: '3.8'
 
 services:
   redis:
-    image: redis:latest
+    image: redis:7.2-alpine
+    command: redis-server --bind 0.0.0.0 --protected-mode no --maxmemory 256mb --maxmemory-policy allkeys-lru --save "" --appendonly no --tcp-keepalive 300 --timeout 0
     ports:
       - "6379:6379"
-    command: redis-server --bind 0.0.0.0 --protected-mode no --save "" --appendonly no --maxmemory 256mb --maxmemory-policy allkeys-lru --dir /tmp
-    restart: unless-stopped
-    networks:
-      - app-network
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
 
   celery_worker:
-    build: .
-    command: python worker.py
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: celery -A app.core.celery_app worker --loglevel=info --concurrency=1
     environment:
       - REDIS_HOST=redis
-    env_file:
-      - .env
+      - REDIS_PORT=6379
+      - REDIS_DB=0
     depends_on:
-      - redis
-    restart: unless-stopped
-    networks:
-      - app-network
+      redis:
+        condition: service_healthy
 
   web:
-    build: .
-    command: uvicorn main:app --host 0.0.0.0 --port 8000
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000
     ports:
-      - "3006:8000"
+      - "5000:8000"
     environment:
       - REDIS_HOST=redis
-    env_file:
-      - .env
+      - REDIS_PORT=6379
+      - REDIS_DB=0
     depends_on:
-      - redis
-      - celery_worker
-    restart: unless-stopped
-    networks:
-      - app-network
+      redis:
+        condition: service_healthy
 
 volumes:
   redis_data:
