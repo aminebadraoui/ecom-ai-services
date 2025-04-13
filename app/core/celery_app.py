@@ -2,13 +2,31 @@ from celery import Celery
 from app.core.config import settings
 
 # Print debug info
-print(f"Setting up Celery with Redis URL: {settings.REDIS_URL}")
+print(f"Setting up Celery with Redis host: {settings.REDIS_HOST}")
 
 celery_app = Celery(
     "worker",
-    backend=settings.REDIS_URL,
-    broker=settings.REDIS_URL,
+    broker_url=f"redis://{settings.REDIS_HOST}:{settings.REDIS_PORT}/{settings.REDIS_DB}",
+    result_backend=f"redis://{settings.REDIS_HOST}:{settings.REDIS_PORT}/{settings.REDIS_DB}",
+    broker_transport_options={
+        'visibility_timeout': 3600,
+        'fanout_prefix': True,
+        'fanout_patterns': True,
+        'socket_connect_timeout': 5,
+        'socket_timeout': 5,
+        'retry_on_timeout': True,
+    },
+    redis_socket_timeout=5,
+    redis_socket_connect_timeout=5,
+    redis_retry_on_timeout=True,
+    broker_connection_retry_on_startup=True,
 )
+
+if settings.REDIS_PASSWORD:
+    celery_app.conf.update(
+        broker_url=f"redis://:{settings.REDIS_PASSWORD}@{settings.REDIS_HOST}:{settings.REDIS_PORT}/{settings.REDIS_DB}",
+        result_backend=f"redis://:{settings.REDIS_PASSWORD}@{settings.REDIS_HOST}:{settings.REDIS_PORT}/{settings.REDIS_DB}",
+    )
 
 celery_app.conf.task_routes = {
     "app.tasks.ad_concept_tasks.*": {"queue": "ad-concept"},
