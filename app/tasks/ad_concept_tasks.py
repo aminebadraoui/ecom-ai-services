@@ -4,8 +4,6 @@ import nest_asyncio
 from celery import Task
 from pydantic_ai import Agent, ImageUrl, RunContext, ModelRetry
 from pydantic_ai.exceptions import UnexpectedModelBehavior
-from redis import Redis
-import os
 import logging
 
 from app.core.celery_app import celery_app
@@ -17,24 +15,19 @@ from app.models.common import TaskResult
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Initialize Redis client
-redis_client = Redis(
-    host=settings.REDIS_HOST,
-    port=settings.REDIS_PORT,
-    db=settings.REDIS_DB,
-    password=settings.REDIS_PASSWORD,
-    username='default',
-    socket_timeout=5,
-    socket_connect_timeout=5,
-    retry_on_timeout=True,
-    decode_responses=True
-)
-
-# For debugging
-print(f"Connecting to Redis at {settings.REDIS_HOST}:{settings.REDIS_PORT}")
-
 # Apply nest_asyncio to make asyncio play nice in Celery tasks
 nest_asyncio.apply()
+
+celery_app.conf.task_routes = {
+    "app.tasks.ad_concept_tasks.*": {"queue": "ad-concept"},
+    "app.tasks.sales_page_tasks.*": {"queue": "sales-page"},
+}
+
+celery_app.conf.update(
+    task_track_started=True,
+    result_expires=3600,  # 1 hour
+    broker_connection_retry_on_startup=True,
+)
 
 class AdConceptTask(Task):
     """Base task for ad concept extraction"""
