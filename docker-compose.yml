@@ -14,8 +14,6 @@ services:
       timeout: 5s
       retries: 5
       start_period: 10s
-    sysctls:
-      - vm.overcommit_memory=1
 
   celery_worker:
     build:
