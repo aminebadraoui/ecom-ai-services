@@ -23,6 +23,7 @@ redis_client = Redis(
     port=settings.REDIS_PORT,
     db=settings.REDIS_DB,
     password=settings.REDIS_PASSWORD,
+    username='default',
     socket_timeout=5,
     socket_connect_timeout=5,
     retry_on_timeout=True,
