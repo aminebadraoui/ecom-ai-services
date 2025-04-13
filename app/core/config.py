@@ -21,6 +21,14 @@ class Settings(BaseSettings):
             return f"redis://:{self.REDIS_PASSWORD}@{self.REDIS_HOST}:{self.REDIS_PORT}/{self.REDIS_DB}"
         return f"redis://{self.REDIS_HOST}:{self.REDIS_PORT}/{self.REDIS_DB}"
     
+    @property
+    def CELERY_BROKER_URL(self) -> str:
+        return self.REDIS_URL
+    
+    @property
+    def CELERY_RESULT_BACKEND(self) -> str:
+        return self.REDIS_URL
+    
     class Config:
         env_file = ".env"
         extra = "allow"  # Allow extra fields from Coolify environment
