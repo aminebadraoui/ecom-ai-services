@@ -18,16 +18,13 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Initialize Redis client
-redis_client = Redis(
-    host=settings.REDIS_HOST,
-    port=settings.REDIS_PORT,
-    db=settings.REDIS_DB,
-    password=settings.REDIS_PASSWORD,
+redis_client = Redis.from_url(
+    settings.REDIS_URL,
     decode_responses=True
 )
 
 # For debugging
-print(f"Connecting to Redis at {settings.REDIS_HOST}:{settings.REDIS_PORT} with password: {'*' * len(settings.REDIS_PASSWORD) if settings.REDIS_PASSWORD else 'none'}")
+print(f"Connecting to Redis at {settings.REDIS_URL}")
 
 # Apply nest_asyncio to make asyncio play nice in Celery tasks
 nest_asyncio.apply()

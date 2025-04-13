@@ -10,16 +10,13 @@ from app.core.config import settings
 router = APIRouter()
 
 # Initialize Redis client
-redis_client = Redis(
-    host=settings.REDIS_HOST,
-    port=settings.REDIS_PORT,
-    db=settings.REDIS_DB,
-    password=settings.REDIS_PASSWORD,
+redis_client = Redis.from_url(
+    settings.REDIS_URL,
     decode_responses=True
 )
 
 # For debugging
-print(f"[API] Connecting to Redis at {settings.REDIS_HOST}:{settings.REDIS_PORT} with password: {'*' * len(settings.REDIS_PASSWORD) if settings.REDIS_PASSWORD else 'none'}")
+print(f"[API] Connecting to Redis at {settings.REDIS_URL}")
 
 @router.get("/tasks/{task_id}")
 async def get_task_result_endpoint(task_id: str):
