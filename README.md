@@ -6,9 +6,11 @@ This FastAPI application provides AI-powered endpoints for extracting structured
 
 - `/extract-ad-concept` - Analyzes product images and extracts structured information about layout, visual elements, and design principles
 - `/extract-sales-page` - Extracts key marketing information from sales pages for creating effective ads
+- `/generate-ad-recipe` - Combines ad concept and sales page data to generate a comprehensive ad creation recipe
 - Background task processing with Celery and Redis
 - Server-Sent Events (SSE) for real-time task updates
 - GPT-4o powered analysis using pydantic-ai
+- Supabase integration for persistent storage
 
 ## Local Setup
 
@@ -38,6 +40,8 @@ This FastAPI application provides AI-powered endpoints for extracting structured
    REDIS_PORT=6379
    REDIS_DB=0
    REDIS_PASSWORD=your_redis_password  # Optional
+   SUPABASE_URL=your_supabase_url
+   SUPABASE_KEY=your_supabase_key
    ```
 
 ### Running the application locally
@@ -105,6 +109,8 @@ This will start the FastAPI application, Celery worker, and Redis server.
    - REDIS_PORT (typically 6379)
    - REDIS_DB (typically 0)
    - REDIS_PASSWORD (if needed)
+   - SUPABASE_URL (required for database features)
+   - SUPABASE_KEY (required for database features)
 
 5. Deploy your application by clicking the "Deploy" button
 
@@ -126,6 +132,18 @@ curl -X POST "http://localhost:8000/api/v1/extract-ad-concept" \
 curl -X POST "http://localhost:8000/api/v1/extract-sales-page" \
      -H "Content-Type: application/json" \
      -d '{"page_url": "https://example.com/sales-page"}'
+```
+
+### Generate Ad Recipe
+
+```bash
+curl -X POST "http://localhost:8000/api/v1/generate-ad-recipe" \
+     -H "Content-Type: application/json" \
+     -d '{
+         "ad_archive_id": "123456789",
+         "image_url": "https://example.com/product-image.jpg",
+         "sales_url": "https://example.com/sales-page"
+     }'
 ```
 
 ### Check Task Status

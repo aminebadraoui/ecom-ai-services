@@ -14,6 +14,10 @@ class Settings(BaseSettings):
     REDIS_PORT: int = 6379
     REDIS_DB: int = 0
     
+    # Supabase settings
+    SUPABASE_URL: Optional[str] = os.environ.get("SUPABASE_URL")
+    SUPABASE_KEY: Optional[str] = os.environ.get("SUPABASE_KEY")
+    
     @property
     def REDIS_URL(self) -> str:
         return f"redis://{self.REDIS_HOST}:{self.REDIS_PORT}/{self.REDIS_DB}"

@@ -21,6 +21,8 @@ jobs:
           echo "REDIS_PORT=6379" >> .env
           echo "REDIS_DB=0" >> .env
           echo "OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}" >> .env
+          echo "SUPABASE_URL=${{ secrets.SUPABASE_URL }}" >> .env
+          echo "SUPABASE_KEY=${{ secrets.SUPABASE_KEY }}" >> .env
           # Add any other environment variables your app needs
         
       - name: Login to DockerHub
@@ -37,5 +39,7 @@ jobs:
           tags: ${{ secrets.DOCKERHUB_USERNAME }}/ecom-ai-service:latest
           build-args: |
             OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}
+            SUPABASE_URL=${{ secrets.SUPABASE_URL }}
+            SUPABASE_KEY=${{ secrets.SUPABASE_KEY }}
           cache-from: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/ecom-ai-service:buildcache
           cache-to: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/ecom-ai-service:buildcache,mode=max 

@@ -25,6 +25,7 @@ celery_app = Celery(
 celery_app.conf.task_routes = {
     "app.tasks.ad_concept_tasks.*": {"queue": "ad-concept"},
     "app.tasks.sales_page_tasks.*": {"queue": "sales-page"},
+    "app.tasks.ad_recipe_tasks.*": {"queue": "ad-recipe"},
 }
 
 celery_app.conf.update(
@@ -35,4 +36,5 @@ celery_app.conf.update(
 
 # Import tasks modules to register tasks with Celery
 import app.tasks.ad_concept_tasks
-import app.tasks.sales_page_tasks 
+import app.tasks.sales_page_tasks
+import app.tasks.ad_recipe_tasks 

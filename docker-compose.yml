@@ -6,43 +6,48 @@ services:
     command: redis-server --bind 0.0.0.0 --protected-mode no
     ports:
       - "6379:6379"
-    volumes:
-      - redis_data:/data
     healthcheck:
       test: [ "CMD", "redis-cli", "ping" ]
       interval: 5s
       timeout: 5s
       retries: 5
       start_period: 10s
-    restart: always
-
-  api:
-    image: aminebadraoui/ecom-ai-service:latest
-    ports:
-      - "3006:8000"
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8000
-    environment:
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
-      - REDIS_DB=0
-      - OPENAI_API_KEY=your_openai_key_here # Replace with your actual API key
-    depends_on:
-      redis:
-        condition: service_healthy
-    restart: always
 
   celery_worker:
-    image: aminebadraoui/ecom-ai-service:latest
-    command: celery -A app.core.celery_app:celery_app worker --loglevel=info --concurrency=1 -Q celery,ad-concept,sales-page
+    build:
+      context: .
+      dockerfile: Dockerfile
+    working_dir: /app
+    command: celery -A app.core.celery_app:celery_app worker --loglevel=info --concurrency=1
     environment:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - REDIS_DB=0
-      - OPENAI_API_KEY=your_openai_key_here # Replace with your actual API key
+      - PYTHONPATH=/app
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_KEY=${SUPABASE_KEY}
     depends_on:
       redis:
         condition: service_healthy
-    restart: always
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    working_dir: /app
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000
+    ports:
+      - "3006:8000"
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_DB=0
+      - PYTHONPATH=/app
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_KEY=${SUPABASE_KEY}
+    depends_on:
+      redis:
+        condition: service_healthy
 
 volumes:
   redis_data:

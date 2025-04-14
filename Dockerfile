@@ -4,6 +4,8 @@ WORKDIR /app
 
 # Define build arguments
 ARG OPENAI_API_KEY
+ARG SUPABASE_URL
+ARG SUPABASE_KEY
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -25,6 +27,8 @@ ENV OPENAI_API_KEY=${OPENAI_API_KEY}
 ENV REDIS_HOST=redis
 ENV REDIS_PORT=6379
 ENV REDIS_DB=0
+ENV SUPABASE_URL=${SUPABASE_URL}
+ENV SUPABASE_KEY=${SUPABASE_KEY}
 
 # Create a non-root user
 RUN useradd -m appuser
