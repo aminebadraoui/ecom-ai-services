@@ -39,7 +39,7 @@ class SupabaseService:
             logger.error(f"Error fetching ad concept for ad_archive_id {ad_archive_id}: {str(e)}")
             return None
     
-    def store_ad_concept(self, ad_archive_id: str, image_url: str, concept_json: dict):
+    def store_ad_concept(self, ad_archive_id: str, image_url: str, concept_json: dict, user_id: str):
         """Store ad concept in the database"""
         if not self.client:
             logger.error("Supabase client not initialized. Cannot store ad concept.")
@@ -49,7 +49,8 @@ class SupabaseService:
             data = {
                 'ad_archive_id': ad_archive_id,
                 'image_url': image_url,
-                'concept_json': concept_json
+                'concept_json': concept_json,
+                'user_id': user_id
             }
             response = self.client.table('ad_concepts').insert(data).execute()
             logger.info(f"Stored ad concept for ad_archive_id: {ad_archive_id}")
@@ -58,7 +59,7 @@ class SupabaseService:
             logger.error(f"Error storing ad concept for ad_archive_id {ad_archive_id}: {str(e)}")
             return None
     
-    def store_ad_recipe(self, ad_archive_id: str, image_url: str, sales_url: str, ad_concept_json: dict, sales_page_json: dict, recipe_prompt: str):
+    def store_ad_recipe(self, ad_archive_id: str, image_url: str, sales_url: str, ad_concept_json: dict, sales_page_json: dict, recipe_prompt: str, user_id: str):
         """Store ad recipe in the database"""
         if not self.client:
             logger.error("Supabase client not initialized. Cannot store ad recipe.")
@@ -71,7 +72,8 @@ class SupabaseService:
                 'sales_url': sales_url,
                 'ad_concept_json': ad_concept_json,
                 'sales_page_json': sales_page_json,
-                'recipe_prompt': recipe_prompt
+                'recipe_prompt': recipe_prompt,
+                'user_id': user_id
             }
             response = self.client.table('ad_recipes').insert(data).execute()
             logger.info(f"Stored ad recipe for ad_archive_id: {ad_archive_id}")

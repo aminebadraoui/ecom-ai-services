@@ -51,7 +51,7 @@ class AdRecipeTask(Task):
         redis_client.set(f"task:{task_id}", json.dumps(task_data))
 
 @celery_app.task(base=AdRecipeTask, bind=True, name="app.tasks.ad_recipe_tasks.generate_ad_recipe")
-def generate_ad_recipe(self, ad_archive_id: str, image_url: str, sales_url: str, task_id: str):
+def generate_ad_recipe(self, ad_archive_id: str, image_url: str, sales_url: str, user_id: str, task_id: str):
     """
     Generate an ad recipe by combining ad concept and sales page data
     
@@ -59,6 +59,7 @@ def generate_ad_recipe(self, ad_archive_id: str, image_url: str, sales_url: str,
         ad_archive_id: ID of the ad in the archive
         image_url: URL of the image to analyze
         sales_url: URL of the sales page to analyze
+        user_id: ID of the user making the request
         task_id: Unique ID for tracking the task
     """
     # Update task status to "processing"
@@ -90,7 +91,7 @@ def generate_ad_recipe(self, ad_archive_id: str, image_url: str, sales_url: str,
             ad_concept_json = concept_task_data.get("result")
             
             # Store in Supabase
-            supabase_service.store_ad_concept(ad_archive_id, image_url, ad_concept_json)
+            supabase_service.store_ad_concept(ad_archive_id, image_url, ad_concept_json, user_id)
         else:
             # Use existing ad concept data
             logger.info(f"Using existing ad concept for {ad_archive_id}")
@@ -156,7 +157,8 @@ Output: A Facebook-ready image ad (9:16 format).
             sales_url=sales_url,
             ad_concept_json=ad_concept_json,
             sales_page_json=sales_page_json,
-            recipe_prompt=recipe_prompt
+            recipe_prompt=recipe_prompt,
+            user_id=user_id
         )
         
         # Step 5: Update task status to "completed"
@@ -166,7 +168,8 @@ Output: A Facebook-ready image ad (9:16 format).
             "sales_url": sales_url,
             "ad_concept_json": ad_concept_json,
             "sales_page_json": sales_page_json,
-            "recipe_prompt": recipe_prompt
+            "recipe_prompt": recipe_prompt,
+            "user_id": user_id
         }
         
         self.update_state(

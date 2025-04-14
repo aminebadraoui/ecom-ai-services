@@ -18,6 +18,7 @@ async def generate_ad_recipe_endpoint(input_data: AdRecipeInput):
         input_data.ad_archive_id,
         input_data.image_url, 
         input_data.sales_url,
+        input_data.user_id,
         task_id
     )
     
