@@ -5,6 +5,7 @@ from celery import Task
 from pydantic_ai import Agent, ImageUrl, RunContext, ModelRetry
 from pydantic_ai.exceptions import UnexpectedModelBehavior
 import logging
+from redis import Redis
 
 from app.core.celery_app import celery_app
 from app.core.config import settings
@@ -14,6 +15,17 @@ from app.models.common import TaskResult
 # Set up logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+# Initialize Redis client
+redis_client = Redis(
+    host=settings.REDIS_HOST,
+    port=settings.REDIS_PORT,
+    db=settings.REDIS_DB,
+    socket_timeout=5,
+    socket_connect_timeout=5,
+    retry_on_timeout=True,
+    decode_responses=True
+)
 
 # Apply nest_asyncio to make asyncio play nice in Celery tasks
 nest_asyncio.apply()

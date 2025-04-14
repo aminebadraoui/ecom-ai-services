@@ -31,4 +31,8 @@ celery_app.conf.update(
     task_track_started=True,
     result_expires=3600,  # 1 hour
     broker_connection_retry_on_startup=True,
-) 
+)
+
+# Import tasks modules to register tasks with Celery
+import app.tasks.ad_concept_tasks
+import app.tasks.sales_page_tasks 
