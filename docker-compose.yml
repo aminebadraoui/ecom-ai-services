@@ -24,8 +24,6 @@ services:
       - REDIS_PORT=6379
       - REDIS_DB=0
       - PYTHONPATH=/app
-      - SUPABASE_URL=${SUPABASE_URL}
-      - SUPABASE_KEY=${SUPABASE_KEY}
     depends_on:
       redis:
         condition: service_healthy
@@ -43,8 +41,6 @@ services:
       - REDIS_PORT=6379
       - REDIS_DB=0
       - PYTHONPATH=/app
-      - SUPABASE_URL=${SUPABASE_URL}
-      - SUPABASE_KEY=${SUPABASE_KEY}
     depends_on:
       redis:
         condition: service_healthy

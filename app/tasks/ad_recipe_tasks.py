@@ -13,8 +13,6 @@ from app.models.common import TaskResult
 from app.models.ad_concept import AdConceptOutput
 from app.models.sales_page import SalesPageOutput
 from app.services.supabase_service import supabase_service
-from app.tasks.ad_concept_tasks import extract_ad_concept
-from app.tasks.sales_page_tasks import extract_sales_page
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -77,6 +75,9 @@ def generate_ad_recipe(self, ad_archive_id: str, image_url: str, sales_url: str,
             # Generate a new subtask ID
             concept_task_id = f"{task_id}_concept"
             
+            # Import at runtime to avoid circular import
+            from app.tasks.ad_concept_tasks import extract_ad_concept
+            
             # Run ad concept extraction task synchronously
             concept_result = extract_ad_concept(image_url, concept_task_id)
             
@@ -98,6 +99,9 @@ def generate_ad_recipe(self, ad_archive_id: str, image_url: str, sales_url: str,
         # Step 2: Extract sales page information
         logger.info(f"Extracting sales page information for {sales_url}")
         sales_page_task_id = f"{task_id}_sales"
+        
+        # Import at runtime to avoid circular import
+        from app.tasks.sales_page_tasks import extract_sales_page
         
         # Run sales page extraction task synchronously
         sales_result = extract_sales_page(sales_url, sales_page_task_id)
