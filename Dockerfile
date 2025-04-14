@@ -2,6 +2,9 @@ FROM python:3.9-slim
 
 WORKDIR /app
 
+# Define build arguments
+ARG OPENAI_API_KEY
+
 # Install system dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
@@ -13,12 +16,15 @@ COPY requirements.txt .
 # Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy application code and .env file
+# Copy application code
 COPY . .
-COPY .env .env
 
 # Set environment variables
 ENV PYTHONPATH=/app
+ENV OPENAI_API_KEY=${OPENAI_API_KEY}
+ENV REDIS_HOST=redis
+ENV REDIS_PORT=6379
+ENV REDIS_DB=0
 
 # Create a non-root user
 RUN useradd -m appuser
