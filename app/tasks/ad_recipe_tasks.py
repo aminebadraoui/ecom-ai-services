@@ -148,6 +148,8 @@ You will receive:
 
 3. VISUAL IDENTITY:
    - Use ONLY the user-provided product images and logo
+   - CRITICAL: Maintain the EXACT shape, form, and packaging of the product as shown in the provided image
+   - Do NOT modify, stylize, or change the product shape (e.g., don't convert a rectangular product into a cylindrical one)
    - Maintain exact dimensions and proportions of product images and logo
    - Extract and use the brand color palette from the provided assets
    - Match typography style if possible, or use appropriate alternatives
@@ -155,6 +157,7 @@ You will receive:
 4. PRIMARY OFFERING VISIBILITY:
    - Check the "primary_offering_visibility" field in the ad concept JSON
    - If "is_visible": true, prominently feature the product image as specified
+   - IMPORTANT: Always preserve the product's exact appearance, packaging type, and physical form
    - If "is_visible": false, follow the conceptual approach without showing the product
 
 5. MESSAGING:
