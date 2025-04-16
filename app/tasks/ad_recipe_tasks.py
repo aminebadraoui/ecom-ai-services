@@ -91,18 +91,7 @@ def generate_ad_recipe(self, ad_archive_id: str, image_url: str, sales_url: str,
             ad_concept_json = concept_task_data.get("result")
             
             # Store in Supabase
-            # Ensure user_id is a valid UUID or handle as needed
-            try:
-                # Try to parse as UUID to validate
-                from uuid import UUID
-                UUID(user_id)
-                supabase_service.store_ad_concept(ad_archive_id, image_url, ad_concept_json, user_id)
-            except ValueError:
-                # If user_id is not a valid UUID, generate a new one or use a default
-                logger.warning(f"Invalid UUID format for user_id: {user_id}. Using a generated UUID instead.")
-                import uuid
-                valid_uuid = str(uuid.uuid4())
-                supabase_service.store_ad_concept(ad_archive_id, image_url, ad_concept_json, valid_uuid)
+            supabase_service.store_ad_concept(ad_archive_id, image_url, ad_concept_json, user_id)
         else:
             # Use existing ad concept data
             logger.info(f"Using existing ad concept for {ad_archive_id}")
@@ -191,34 +180,15 @@ The final result should feel like a professional, high-converting ad that mainta
 """
 
         # Step 4: Store the complete recipe in Supabase
-        # Ensure user_id is a valid UUID
-        try:
-            # Try to parse as UUID to validate
-            from uuid import UUID
-            UUID(user_id)
-            supabase_service.store_ad_recipe(
-                ad_archive_id=ad_archive_id,
-                image_url=image_url,
-                sales_url=sales_url,
-                ad_concept_json=ad_concept_json,
-                sales_page_json=sales_page_json,
-                recipe_prompt=recipe_prompt,
-                user_id=user_id
-            )
-        except ValueError:
-            # If user_id is not a valid UUID, generate a new one or use a default
-            logger.warning(f"Invalid UUID format for user_id: {user_id}. Using a generated UUID instead.")
-            import uuid
-            valid_uuid = str(uuid.uuid4())
-            supabase_service.store_ad_recipe(
-                ad_archive_id=ad_archive_id,
-                image_url=image_url,
-                sales_url=sales_url,
-                ad_concept_json=ad_concept_json,
-                sales_page_json=sales_page_json,
-                recipe_prompt=recipe_prompt,
-                user_id=valid_uuid
-            )
+        supabase_service.store_ad_recipe(
+            ad_archive_id=ad_archive_id,
+            image_url=image_url,
+            sales_url=sales_url,
+            ad_concept_json=ad_concept_json,
+            sales_page_json=sales_page_json,
+            recipe_prompt=recipe_prompt,
+            user_id=user_id
+        )
         
         # Step 5: Update task status to "completed"
         result_dict = {
