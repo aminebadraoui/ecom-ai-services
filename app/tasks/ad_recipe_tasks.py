@@ -119,67 +119,65 @@ def generate_ad_recipe(self, ad_archive_id: str, image_url: str, sales_url: str,
         logger.info(f"Generating ad recipe prompt for {ad_archive_id}")
         
         # Format the prompt template
-        recipe_prompt = f"""You are an expert ad creative designer. Create a high-converting Facebook ad using the provided information and assets:
+        recipe_prompt = f"""You are an expert ad creative designer. Your task is to recreate a high-converting ad style for a new product by precisely following an existing ad's blueprint:
 
-### EXISTING AD CONCEPT (JSON):
-This contains the visual layout, structure, and design approach to replicate.
+### AD BLUEPRINT (JSON):
+This contains a comprehensive analysis of an existing successful ad's structure and approach. Follow this blueprint exactly.
 {json.dumps(ad_concept_json, indent=2)}
 
-### PRODUCT INFORMATION (JSON):
-This contains the core product details to include in your ad.
+### TARGET PRODUCT INFORMATION (JSON):
+This contains the details of the specific product we want to advertise using the blueprint above.
 {json.dumps(sales_page_json, indent=2)}
 
 ### USER-PROVIDED ASSETS:
-You will receive:
-- Product image(s)
-- Brand logo
+The user will provide:
+- Product image(s) that MUST be used exactly as provided
+- Brand logo that MUST be used exactly as provided
 - Any additional visual assets the user provides
 
-### CREATIVE REQUIREMENTS:
+### CREATIVE APPROACH:
 
-1. FORMAT:
-   - Facebook Ad (9:16 vertical format)
-   - Maintain standard Facebook ad margins and safe zones
+1. EXACT RECREATION WITH NEW PRODUCT:
+   - Your goal is to recreate the EXACT same ad approach/style from the blueprint, but featuring the user's product
+   - Match every aspect of the layout, positioning, hierarchy, and flow described in the blueprint
+   - Use the same visual techniques, proportions, and composition strategy
+   - Maintain the same emotional tone and persuasive approach
 
-2. LAYOUT & STRUCTURE:
-   - Follow EXACTLY the layout structure described in the ad concept JSON
-   - Pay special attention to visual hierarchy, element positioning, and flow
-   - Maintain proportional sizing of elements as described
+2. VISUAL FIDELITY:
+   - Follow all specific positioning details from the "elements" section of the blueprint
+   - Recreate the exact same visual hierarchy and attention flow
+   - Match the color strategy and typography approach as described
+   - Replicate all engagement mechanics and conversion elements
 
-3. VISUAL IDENTITY:
+3. PRODUCT REPRESENTATION:
    - Use ONLY the user-provided product images and logo
    - CRITICAL: Maintain the EXACT shape, form, and packaging of the product as shown in the provided image
-   - Do NOT modify, stylize, or change the product shape (e.g., don't convert a rectangular product into a cylindrical one)
-   - Maintain exact dimensions and proportions of product images and logo
-   - Extract and use the brand color palette from the provided assets
-   - Match typography style if possible, or use appropriate alternatives
+   - Do NOT modify, stylize, or change the product shape in any way
+   - Check the "primary_offering_visibility" in the blueprint to determine how prominently to feature the product
 
-4. PRIMARY OFFERING VISIBILITY:
-   - Check the "primary_offering_visibility" field in the ad concept JSON
-   - If "is_visible": true, prominently feature the product image as specified
-   - IMPORTANT: Always preserve the product's exact appearance, packaging type, and physical form
-   - If "is_visible": false, follow the conceptual approach without showing the product
-
-5. MESSAGING:
-   - Use the messaging tone and style from the ad concept JSON
-   - Pull specific copy points from the product information JSON
+4. CONTENT ADAPTATION:
+   - Take headlines, claims, benefits, and CTAs from the product information JSON
+   - Adapt this content to fit the exact same structure and approach described in the blueprint 
+   - Maintain the emotional tone and persuasive style from the blueprint
    - Ensure all claims align with the product information provided
-   - Include appropriate call-to-action as in the original concept
 
-6. TECHNICAL SPECIFICATIONS:
+5. TECHNICAL REQUIREMENTS:
+   - Facebook Ad (9:16 vertical format)
    - Crisp, high-resolution output
    - Text must be legible on mobile screens
-   - Properly layered file for easy editing
    - Follow Facebook's ad policies regarding text-to-image ratio
 
-### PROCESS:
-1. Analyze the ad concept JSON thoroughly to understand the visual approach
-2. Extract key details from the product information JSON
-3. Integrate the user-provided visual assets following the concept structure
-4. Respect whether the product should be visible based on "primary_offering_visibility"
-5. Generate a compelling ad that perfectly blends the concept structure with the provided assets
+### GUIDANCE FOR MAXIMIZING EFFECTIVENESS:
+1. First, thoroughly study the blueprint to understand exactly how the original ad was structured
+2. Identify all key elements and their relationships to each other
+3. Map out how to replace the original content with the target product content while maintaining the EXACT same structure
+4. Pay special attention to how the blueprint describes:
+   - Visual flow and attention direction
+   - Emotional tone and persuasive techniques
+   - Spacing, proportion, and hierarchy 
+   - Conversion elements and calls to action
 
-The final result should feel like a professional, high-converting ad that maintains the proven layout structure while perfectly showcasing the user's specific product and brand identity.
+Your goal is to make an ad that looks like it was created by the same designer who made the original ad, following the exact same creative approach, but featuring the user's product instead.
 """
 
         # Step 4: Store the complete recipe in Supabase

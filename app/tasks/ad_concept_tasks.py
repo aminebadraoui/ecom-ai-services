@@ -73,84 +73,46 @@ def extract_ad_concept(self, image_url: str, task_id: str):
                 "openai:gpt-4o",
                 result_type=AdConceptOutput,
                 retries=5,  # Set retries for validation
-                system_prompt="""You are analyzing a visual advertisement template structure.
+                system_prompt="""You are analyzing an advertisement to create a detailed blueprint that can be applied to different products.
 
-Your task is to generate an extremely detailed and structured description of this ad template in JSON format. Focus solely on its layout, visual hierarchy, components, spacing, balance, and design approach. Explain how each element contributes to the overall effectiveness of the ad from a UX, marketing, and visual communication perspective.
+Your task is to generate an extremely detailed, structured description of this ad in JSON format. Capture all elements of its layout, visual hierarchy, components, spacing, balance, and design technique. Explain how each element contributes to the overall effectiveness from marketing, UX, and visual communication perspectives.
 
-IMPORTANT: You must NEVER reference specific product categories, niches, industries, or types of goods/services (e.g., skincare, fitness, tech, healthcare, fashion, etc.). Your analysis must be 100% product-category agnostic, focusing only on the visual concept, approach, and design patterns.
+IMPORTANT: While analyzing the ad, do NOT focus on the specific product category (e.g., skincare, fitness, tech). Instead, document the APPROACH, TECHNIQUES, and STRUCTURE in a way that can be transferred to any product. Focus on HOW the ad works rather than WHAT it's selling.
 
-Describe each component in abstract terms that could apply to ANY type of advertisement (e.g., "primary visual element," "supporting text block," "contrast element," "call-to-action region").
+Describe each component in detail including:
+- Exact positioning (relative to other elements)
+- Size proportions 
+- Color relationships
+- Typography style and hierarchy
+- Visual treatments (shadows, gradients, borders)
+- Negative space usage
+- Focal points and attention flow
 
 REQUIRED OUTPUT STRUCTURE:
 Your analysis must include these specific sections:
-1. "title" - A descriptive name for this ad concept template that ONLY references the visual approach or structure (e.g., "Split-Screen Comparison Template", "Testimonial Showcase Layout", "Minimalist Feature Highlight")
-2. "summary" - A brief 1-3 sentence description of the overall ad concept template and its visual approach WITHOUT mentioning any product category
+1. "title" - A descriptive name for this ad concept template that references the visual approach or structure
+2. "summary" - A brief 1-3 sentence description of the overall ad concept and its visual approach
 3. "details" - A dictionary containing ALL other analysis points, including:
-   a. "elements" - An array of objects describing each visual element in the image (position, purpose, styling)
+   a. "elements" - An array of objects describing each visual element in the image with maximum detail:
       Each element should include:
       - "type": The type of element (e.g., primary_visual, headline, etc.)
-      - "position": Where this element is positioned
-      - "purpose": What purpose this element serves
-      - "styling": The visual style of this element
-   b. "visual_flow" - Description of how the viewer's attention moves through the image
-   c. "visual_tone" - The overall tone/vibe of the image
-   d. "best_practices" - List of visual design best practices demonstrated
-   e. Any other observations, details, or analysis you find relevant
-   f. "primary_offering_visibility" - Boolean and description indicating whether a primary offering/item is visibly shown in the ad (true/false plus brief explanation)
+      - "position": Precise positioning description
+      - "purpose": Detailed description of its functional purpose
+      - "styling": Comprehensive styling details including fonts, colors, treatments
+      - "proportion": Approximate size relative to the overall ad
+   b. "visual_flow" - Step-by-step description of how the viewer's attention moves through the ad
+   c. "visual_tone" - Comprehensive analysis of the mood, tone, and emotional qualities
+   d. "color_strategy" - Detailed analysis of color usage, relationships, and psychology
+   e. "typography_approach" - Analysis of font choices, sizing patterns, and text styling
+   f. "spacing_technique" - How spacing and alignment are used strategically
+   g. "engagement_mechanics" - Techniques used to grab and maintain attention
+   h. "conversion_elements" - Features designed to drive action
+   i. "best_practices" - List of effective design and marketing techniques demonstrated
+   j. "primary_offering_visibility" - Whether and how the main offering is shown in the ad
 
-The output JSON MUST match this structure:
-{
-  "title": "Contrast-Based Focus Template",
-  "summary": "A template that uses strong visual contrast and strategic positioning to draw attention to key elements and guide the viewer through a visual hierarchy.",
-  "details": {
-    "elements": [
-      {
-        "type": "primary_visual",
-        "position": "center",
-        "purpose": "To establish the main focal point",
-        "styling": "High contrast against background, prominent sizing"
-      },
-      {
-        "type": "headline",
-        "position": "top section",
-        "purpose": "To communicate the main message",
-        "styling": "Bold typography with emphasis on key words"
-      }
-    ],
-    "visual_flow": "The eye is first drawn to the central visual element, then to the headline above, followed by supporting elements...",
-    "visual_tone": "Bold, confident, and direct with strong visual hierarchy...",
-    "best_practices": [
-      "Strategic use of negative space to create focus", 
-      "Visual contrast to establish hierarchy"
-    ],
-    "color_palette": {
-      "primary": "Deep contrast color",
-      "secondary": "Neutral tone",
-      "accent": "Attention-grabbing highlight"
-    },
-    "spacing_strategy": "Intentional clustering of related elements with breathing room between sections",
-    "primary_offering_visibility": {
-      "is_visible": true,
-      "description": "The main offering is prominently displayed in the center of the composition as the focal point of the advertisement"
-    }
-  }
-}
+The output JSON MUST match this structure, but include as much detail as possible within each section.
 
-You should include as much relevant detail as possible in the "details" dictionary. Don't limit yourself to the examples above - add any additional analysis that would be valuable.
-
-CRITICAL REMINDER: 
-1. Your response MUST INCLUDE THE REQUIRED FIELDS:
-   - "title" (required) - NO PRODUCT CATEGORIES MENTIONED
-   - "summary" (required) - NO PRODUCT CATEGORIES MENTIONED
-   - "details" dictionary (required) with all analysis information
-
-2. NEVER mention any specific:
-   - Product categories
-   - Industries
-   - Niches
-   - Types of goods or services
-
-The goal is to create a completely product-agnostic visual template analysis that focuses purely on design approach, visual strategy, and communication techniques.
+REMEMBER: The goal is to create a transferable blueprint that captures EVERY aspect of what makes this ad effective, without being tied to the specific product being advertised.
 """
             )
             
@@ -183,18 +145,18 @@ The goal is to create a completely product-agnostic visual template analysis tha
                 logger.info(f"Starting agent run for task {task_id}")
                 
                 # Build the prompt
-                user_prompt = """Analyze this advertisement template and provide a detailed, structured description of its visual approach and design elements.
+                user_prompt = """Analyze this advertisement and provide an extremely detailed, structured breakdown of its approach, layout, and techniques.
 
-YOUR RESPONSE MUST INCLUDE ALL FIELDS SPECIFIED IN THE INSTRUCTIONS:
-- "title" - A descriptive name for the ad concept template (NO product categories)
-- "summary" - A brief description of the overall visual concept (NO product categories)
-- "details" - A dictionary containing all your detailed analysis
+YOUR RESPONSE MUST INCLUDE ALL FIELDS SPECIFIED IN THE INSTRUCTIONS and be as detailed as possible within each section.
 
-IMPORTANT: Your analysis must be completely product-category agnostic. DO NOT mention any specific industries, niches, products, or services. Focus ONLY on the visual design approach, layout, and communication strategy.
+IMPORTANT:
+1. Focus on the AD STRUCTURE and TECHNIQUES, not the specific product category
+2. Document precisely how elements are positioned, sized, and relate to each other
+3. Analyze the visual hierarchy, attention flow, and marketing psychology
+4. Note specific details about typography, color usage, and spacing
+5. Identify all persuasive and conversion elements
 
-The "details" dictionary should be as comprehensive as possible. Include elements, visual flow, tone, best practices, and any other observations about the visual design approach.
-
-Be sure to include the "primary_offering_visibility" field in your details to indicate whether a main item/offering is visibly shown in the ad (true/false with explanation).
+Don't omit ANY visual or structural details - the goal is to create a comprehensive blueprint that could be used to recreate the same advertising approach for an entirely different product.
 
 Follow the JSON structure exactly as requested."""
                 
