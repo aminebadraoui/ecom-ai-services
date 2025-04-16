@@ -119,35 +119,64 @@ def generate_ad_recipe(self, ad_archive_id: str, image_url: str, sales_url: str,
         logger.info(f"Generating ad recipe prompt for {ad_archive_id}")
         
         # Format the prompt template
-        recipe_prompt = f"""You are an expert ad creative designer. Use the following inputs to generate a high-converting Facebook ad image (9:16 format):
-Existing Ad Description (JSON):
- This contains the layout, concept, structure, and messaging tone. Recreate the same concept and layout style as described here.
+        recipe_prompt = f"""You are an expert ad creative designer. Create a high-converting Facebook ad using the provided information and assets:
+
+### EXISTING AD CONCEPT (JSON):
+This contains the visual layout, structure, and design approach to replicate.
 {json.dumps(ad_concept_json, indent=2)}
 
-Product Info (JSON):
- Use only to reinforce or clarify the messaging in the ad description, if needed.
-
+### PRODUCT INFORMATION (JSON):
+This contains the core product details to include in your ad.
 {json.dumps(sales_page_json, indent=2)}
 
-Product Mockup (IMAGE):
- This is the sole source for all visual branding, including:
+### USER-PROVIDED ASSETS:
+You will receive:
+- Product image(s)
+- Brand logo
+- Any additional visual assets the user provides
 
-Logo
-Colors
-Fonts (style, if extractable)
-Product image
+### CREATIVE REQUIREMENTS:
 
-Creative Instructions:
-Format: Facebook Ad (9:16 square)
-Design: Follow layout, concept, and ad structure from the ad description JSON.
-Visuals: Extract all branding, colors, and product images only from the mockup.
-Messaging: Use core messaging and tone from the ad JSON. You may refer to the product info JSON for support, but it should not define the structure or design.
-CTA: Include if part of the original concept.
-Design Quality: Bold, scroll-stopping, mobile-optimized, and visually clean.
+1. FORMAT:
+   - Facebook Ad (9:16 vertical format)
+   - Maintain standard Facebook ad margins and safe zones
 
-Goal:
- Reimagine the ad concept described in the JSON using the branding and visual identity from the product mockup — resulting in a compelling, brand-aligned Facebook ad creative that maintains proven layout structure and messaging effectiveness.
-Output: A Facebook-ready image ad (9:16 format).
+2. LAYOUT & STRUCTURE:
+   - Follow EXACTLY the layout structure described in the ad concept JSON
+   - Pay special attention to visual hierarchy, element positioning, and flow
+   - Maintain proportional sizing of elements as described
+
+3. VISUAL IDENTITY:
+   - Use ONLY the user-provided product images and logo
+   - Maintain exact dimensions and proportions of product images and logo
+   - Extract and use the brand color palette from the provided assets
+   - Match typography style if possible, or use appropriate alternatives
+
+4. PRIMARY OFFERING VISIBILITY:
+   - Check the "primary_offering_visibility" field in the ad concept JSON
+   - If "is_visible": true, prominently feature the product image as specified
+   - If "is_visible": false, follow the conceptual approach without showing the product
+
+5. MESSAGING:
+   - Use the messaging tone and style from the ad concept JSON
+   - Pull specific copy points from the product information JSON
+   - Ensure all claims align with the product information provided
+   - Include appropriate call-to-action as in the original concept
+
+6. TECHNICAL SPECIFICATIONS:
+   - Crisp, high-resolution output
+   - Text must be legible on mobile screens
+   - Properly layered file for easy editing
+   - Follow Facebook's ad policies regarding text-to-image ratio
+
+### PROCESS:
+1. Analyze the ad concept JSON thoroughly to understand the visual approach
+2. Extract key details from the product information JSON
+3. Integrate the user-provided visual assets following the concept structure
+4. Respect whether the product should be visible based on "primary_offering_visibility"
+5. Generate a compelling ad that perfectly blends the concept structure with the provided assets
+
+The final result should feel like a professional, high-converting ad that maintains the proven layout structure while perfectly showcasing the user's specific product and brand identity.
 """
 
         # Step 4: Store the complete recipe in Supabase
