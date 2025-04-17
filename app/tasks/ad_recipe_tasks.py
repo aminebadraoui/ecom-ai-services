@@ -13,6 +13,7 @@ from app.models.common import TaskResult
 from app.models.ad_concept import AdConceptOutput
 from app.models.sales_page import SalesPageOutput
 from app.services.supabase_service import supabase_service
+from app.tasks.ad_analysis_workflow import analyze_ad_with_structured_workflow
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -64,10 +65,11 @@ def generate_ad_recipe(self, ad_archive_id: str, image_url: str, sales_url: str,
     """
     # Update task status to "processing"
     self.update_state(task_id, "processing")
+    logger.info(f"Starting ad recipe generation task {task_id} for ad_archive_id={ad_archive_id}")
 
     try:
-        # Step 1: Extract sales page information first
-        logger.info(f"Extracting sales page information for {sales_url}")
+        # Step 1: Extract sales page information
+        logger.info(f"Step 1: Extracting sales page information for {sales_url}")
         sales_page_task_id = f"{task_id}_sales"
         
         # Import at runtime to avoid circular import
@@ -79,115 +81,90 @@ def generate_ad_recipe(self, ad_archive_id: str, image_url: str, sales_url: str,
         # Check if the task was successful
         sales_task_data = json.loads(redis_client.get(f"task:{sales_page_task_id}"))
         if sales_task_data.get("status") != "completed":
+            logger.error(f"Failed to extract sales page data: {sales_task_data.get('error')}")
             raise Exception(f"Failed to extract sales page data: {sales_task_data.get('error')}")
         
         # Get the sales page result
         sales_page_json = sales_task_data.get("result")
+        logger.info(f"Successfully extracted sales page data with {len(sales_page_json) if isinstance(sales_page_json, dict) else 0} fields")
         
-        # Step 2: Check if ad concept exists in Supabase
+        # Step 2: Check if we need to generate a new ad concept
+        logger.info(f"Step 2: Checking if ad concept exists for {ad_archive_id}")
         ad_concept_data = supabase_service.get_ad_concept_by_archive_id(ad_archive_id)
+        should_generate_new_concept = False
         
-        # Import at runtime to avoid circular import
-        from app.tasks.ad_concept_tasks import extract_ad_concept_with_context
-        
-        # If not found, generate a new one with product context
-        if not ad_concept_data:
-            logger.info(f"No existing ad concept found for {ad_archive_id}, generating one...")
+        # Simplified validation of existing ad concept
+        if ad_concept_data:
+            ad_concept_json = ad_concept_data.get("concept_json", {})
+            logger.info(f"Found existing ad concept for {ad_archive_id}")
             
-            # Generate a new subtask ID
-            concept_task_id = f"{task_id}_concept"
-            
-            # Run ad concept extraction task synchronously with product context
-            concept_result = extract_ad_concept_with_context(image_url, sales_page_json, concept_task_id)
-            
-            # Check if the task was successful
-            concept_task_data = json.loads(redis_client.get(f"task:{concept_task_id}"))
-            if concept_task_data.get("status") != "completed":
-                raise Exception(f"Failed to extract ad concept: {concept_task_data.get('error')}")
-            
-            # Get the ad concept result
-            ad_concept_json = concept_task_data.get("result")
-            
-            # Debug the ad_concept_json to check for issues
-            logger.info(f"Raw ad_concept_json data type: {type(ad_concept_json)}")
-            logger.info(f"Raw ad_concept_json content: {json.dumps(ad_concept_json, indent=2)}")
-            
-            # Validate structure but don't enforce mock data
-            if not isinstance(ad_concept_json, dict):
-                logger.error(f"Ad concept result is not a dict: {type(ad_concept_json)}")
-                raise Exception(f"Invalid ad concept data format: {type(ad_concept_json)}")
+            # Quick validation of required structure
+            if (not isinstance(ad_concept_json, dict) or 
+                not ad_concept_json.get("details") or 
+                not isinstance(ad_concept_json.get("details"), dict) or
+                not ad_concept_json.get("details", {}).get("elements")):
                 
-            if not ad_concept_json.get("details") or not isinstance(ad_concept_json.get("details"), dict):
-                logger.error(f"Ad concept missing details structure")
-                raise Exception(f"Ad concept analysis failed to generate complete details")
-            
-            # Verify that the concept has the required detailed analysis
-            if not ad_concept_json or not ad_concept_json.get("details") or not ad_concept_json["details"]:
-                logger.error(f"Ad concept for {ad_archive_id} is missing detailed analysis. Regenerating...")
-                
-                try:
-                    # Re-attempt with explicit focus on detailed analysis
-                    concept_retry_id = f"{task_id}_concept_retry"
-                    concept_result = extract_ad_concept_with_context(image_url, sales_page_json, concept_retry_id)
-                    
-                    # Check if retry was successful
-                    concept_retry_data = json.loads(redis_client.get(f"task:{concept_retry_id}"))
-                    if concept_retry_data.get("status") != "completed" or not concept_retry_data.get("result", {}).get("details"):
-                        raise Exception(f"Failed to extract complete ad concept details after retry")
-                    
-                    # Use the retry results
-                    ad_concept_json = concept_retry_data.get("result")
-                except Exception as e:
-                    logger.error(f"Error regenerating new ad concept: {str(e)}")
-                    raise Exception(f"Failed to generate valid ad concept structure after multiple attempts: {str(e)}")
-            
-            # Store in Supabase
-            supabase_service.store_ad_concept(ad_archive_id, image_url, ad_concept_json, user_id)
-        else:
-            # Use existing ad concept data
-            logger.info(f"Using existing ad concept for {ad_archive_id}")
-            ad_concept_json = ad_concept_data.get("concept_json")
-            
-            # Debug the existing ad_concept_json
-            logger.info(f"Existing ad_concept_json data type: {type(ad_concept_json)}")
-            logger.info(f"Existing ad_concept_json content: {json.dumps(ad_concept_json, indent=2)}")
-            
-            # Validate structure but don't enforce mock data
-            if not isinstance(ad_concept_json, dict):
-                logger.error(f"Existing ad concept result is not a dict: {type(ad_concept_json)}")
-                logger.info(f"Regenerating ad concept because structure is invalid")
-                ad_concept_data = None  # Force regeneration
-            elif not ad_concept_json.get("details") or not isinstance(ad_concept_json.get("details"), dict) or len(ad_concept_json.get("details", {})) == 0:
-                logger.error(f"Existing ad concept missing details structure")
-                logger.info(f"Regenerating ad concept because details are missing")
-                ad_concept_data = None  # Force regeneration
-            elif not ad_concept_json.get("details", {}).get("elements"):
-                logger.error(f"Existing ad concept missing elements in details")
-                logger.info(f"Regenerating ad concept because elements are missing")
-                ad_concept_data = None  # Force regeneration
+                logger.warning(f"Existing ad concept has invalid structure, will generate new one")
+                should_generate_new_concept = True
             else:
-                # Additional validation to ensure the structure is complete
-                required_detail_fields = ["visual_flow", "visual_tone", "color_strategy", "typography_approach", 
-                                        "spacing_technique", "engagement_mechanics", "conversion_elements", 
-                                        "best_practices", "primary_offering_visibility"]
-                
-                missing_fields = [field for field in required_detail_fields if field not in ad_concept_json.get("details", {})]
-                if missing_fields:
-                    logger.error(f"Existing ad concept missing required fields: {', '.join(missing_fields)}")
-                    logger.info(f"Regenerating ad concept because fields are missing: {', '.join(missing_fields)}")
-                    ad_concept_data = None  # Force regeneration
+                logger.info(f"Using existing valid ad concept for {ad_archive_id}")
+        else:
+            logger.info(f"No existing ad concept found for {ad_archive_id}")
+            should_generate_new_concept = True
         
-        # Step 3: Generate the prompt template
-        logger.info(f"Generating ad recipe prompt for {ad_archive_id}")
-        
-        # Final validation of ad concept data
-        if not isinstance(ad_concept_json, dict) or not ad_concept_json.get("details") or not ad_concept_json["details"]:
-            raise Exception(f"Cannot generate recipe: Ad concept data is incomplete or missing details dictionary")
+        # Generate a new concept if needed using the structured workflow
+        if should_generate_new_concept:
+            logger.info(f"Generating new ad concept using structured workflow")
             
-        if not isinstance(ad_concept_json["details"], dict) or "elements" not in ad_concept_json["details"]:
-            raise Exception(f"Cannot generate recipe: Ad concept details are missing required elements array")
+            # Create an event loop for the async workflow
+            loop = asyncio.get_event_loop()
+            
+            # Run the structured workflow analysis
+            logger.info(f"Starting structured ad analysis workflow for {image_url}")
+            ad_concept_json = loop.run_until_complete(
+                analyze_ad_with_structured_workflow(image_url, sales_page_json)
+            )
+            
+            logger.info(f"Successfully generated ad concept with structured workflow")
+            logger.info(f"Ad concept title: '{ad_concept_json.get('title')}'")
+            logger.info(f"Ad concept elements: {len(ad_concept_json.get('details', {}).get('elements', []))} elements found")
+            
+            # Store the new concept in Supabase
+            logger.info(f"Storing new ad concept in Supabase")
+            supabase_service.store_ad_concept(ad_archive_id, image_url, ad_concept_json, user_id)
+        
+        # Step 3: Generate the recipe prompt
+        logger.info(f"Step 3: Generating ad recipe prompt")
+        
+        # Final validation before generating the recipe
+        if not isinstance(ad_concept_json, dict):
+            logger.error("Ad concept is not a dictionary")
+            raise Exception("Ad concept has invalid format")
+            
+        if not ad_concept_json.get("details"):
+            logger.error("Ad concept is missing details dictionary")
+            raise Exception("Ad concept is missing details dictionary")
+            
+        if not isinstance(ad_concept_json["details"], dict):
+            logger.error("Ad concept details is not a dictionary")
+            raise Exception("Ad concept details has invalid format")
+            
+        if "elements" not in ad_concept_json["details"]:
+            logger.error("Ad concept details is missing elements array")
+            raise Exception("Ad concept details is missing elements array")
+            
+        # Log details about the ad concept
+        elements = ad_concept_json["details"].get("elements", [])
+        logger.info(f"Ad concept contains {len(elements)} elements")
+        
+        for i, element in enumerate(elements):
+            logger.info(f"Element {i+1}: {element.get('type')} - {element.get('position')}")
+            
+        logger.info(f"Ad concept visual flow: {ad_concept_json['details'].get('visual_flow', '')[:50]}...")
+        logger.info(f"Ad concept color strategy: {ad_concept_json['details'].get('color_strategy', '')[:50]}...")
             
         # Format the prompt template
+        logger.info(f"Creating recipe prompt template")
         recipe_prompt = f"""You are an expert ad creative designer. Your task is to recreate a high-converting ad style for a new product by precisely following an existing ad's blueprint:
 
 ### AD BLUEPRINT (JSON):
@@ -248,8 +225,10 @@ The user will provide:
 
 Your goal is to make an ad that looks like it was created by the same designer who made the original ad, following the exact same creative approach, but featuring the user's product instead.
 """
+        logger.info(f"Recipe prompt created, length: {len(recipe_prompt)} characters")
 
         # Step 4: Store the complete recipe in Supabase
+        logger.info(f"Step 4: Storing ad recipe in Supabase")
         supabase_service.store_ad_recipe(
             ad_archive_id=ad_archive_id,
             image_url=image_url,
@@ -261,6 +240,7 @@ Your goal is to make an ad that looks like it was created by the same designer w
         )
         
         # Step 5: Update task status to "completed"
+        logger.info(f"Step 5: Completing task {task_id}")
         result_dict = {
             "ad_archive_id": ad_archive_id,
             "image_url": image_url,
@@ -277,7 +257,9 @@ Your goal is to make an ad that looks like it was created by the same designer w
             result=result_dict
         )
         
-        # Return a simple dict, not the complex result object
+        logger.info(f"Ad recipe generation task {task_id} completed successfully")
+        
+        # Return a simple dict
         return {
             "status": "completed", 
             "task_id": task_id,
@@ -288,7 +270,7 @@ Your goal is to make an ad that looks like it was created by the same designer w
         # Store the error
         import traceback
         error_details = f"{str(e)}\n{traceback.format_exc()}"
-        logger.error(f"Error processing task {task_id}: {error_details}")
+        logger.error(f"Error in ad recipe generation task {task_id}: {error_details}")
         
         self.update_state(
             task_id, 
