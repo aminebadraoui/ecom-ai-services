@@ -108,6 +108,22 @@ def generate_ad_recipe(self, ad_archive_id: str, image_url: str, sales_url: str,
             # Get the ad concept result
             ad_concept_json = concept_task_data.get("result")
             
+            # Verify that the concept has the required detailed analysis
+            if not ad_concept_json or not ad_concept_json.get("details") or not ad_concept_json["details"]:
+                logger.error(f"Ad concept for {ad_archive_id} is missing detailed analysis. Regenerating...")
+                
+                # Re-attempt with explicit focus on detailed analysis
+                concept_retry_id = f"{task_id}_concept_retry"
+                concept_result = extract_ad_concept_with_context(image_url, sales_page_json, concept_retry_id)
+                
+                # Check if retry was successful
+                concept_retry_data = json.loads(redis_client.get(f"task:{concept_retry_id}"))
+                if concept_retry_data.get("status") != "completed" or not concept_retry_data.get("result", {}).get("details"):
+                    raise Exception(f"Failed to extract complete ad concept details after retry")
+                
+                # Use the retry results
+                ad_concept_json = concept_retry_data.get("result")
+            
             # Store in Supabase
             supabase_service.store_ad_concept(ad_archive_id, image_url, ad_concept_json, user_id)
         else:

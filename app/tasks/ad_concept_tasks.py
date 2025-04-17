@@ -127,15 +127,25 @@ REMEMBER: The goal is to create a transferable blueprint that captures EVERY asp
                     logger.error(f"Missing required fields in result for task {task_id}")
                     raise ModelRetry("Your response is missing required fields. Please include both 'title' and 'summary' fields.")
                 
-                # Check that details are present
+                # Check that details are present and not empty
                 if not hasattr(result, "details") or not result.details:
                     logger.error(f"Missing details dictionary in result for task {task_id}")
-                    result.details = {}
+                    raise ModelRetry("Your response is missing the 'details' dictionary or it's empty. This field is required and must contain comprehensive analysis.")
                 
                 # Check for elements in details
                 if "elements" not in result.details or not result.details["elements"]:
                     logger.warning(f"No elements found in details for task {task_id}")
-                    # Not making this required, but adding the warning to logs
+                    raise ModelRetry("Your response must include an 'elements' array in the details dictionary with comprehensive element analysis.")
+                
+                # Check for other required fields in details
+                required_detail_fields = ["visual_flow", "visual_tone", "color_strategy", "typography_approach", 
+                                         "spacing_technique", "engagement_mechanics", "conversion_elements", 
+                                         "best_practices", "primary_offering_visibility"]
+                
+                missing_fields = [field for field in required_detail_fields if field not in result.details]
+                if missing_fields:
+                    logger.error(f"Missing required detail fields: {', '.join(missing_fields)}")
+                    raise ModelRetry(f"Your response is missing these required fields in the details dictionary: {', '.join(missing_fields)}. Please include all required fields with comprehensive analysis.")
                 
                 logger.info(f"Result validation successful for task {task_id}")
                 return result
@@ -148,6 +158,8 @@ REMEMBER: The goal is to create a transferable blueprint that captures EVERY asp
                 user_prompt = """Analyze this advertisement and provide an extremely detailed, structured breakdown of its approach, layout, and techniques.
 
 YOUR RESPONSE MUST INCLUDE ALL FIELDS SPECIFIED IN THE INSTRUCTIONS and be as detailed as possible within each section.
+
+CRITICAL: The 'details' dictionary is the most important part of your analysis and must be COMPREHENSIVE. Include ALL required fields with thorough descriptions. This blueprint will be used directly to recreate ads, so missing details will result in incomplete recreations.
 
 IMPORTANT:
 1. Focus on the AD STRUCTURE and TECHNIQUES, not the specific product category
@@ -305,15 +317,25 @@ REMEMBER: Use terminology consistent with the product type from the context. The
                     logger.error(f"Missing required fields in result for task {task_id}")
                     raise ModelRetry("Your response is missing required fields. Please include both 'title' and 'summary' fields.")
                 
-                # Check that details are present
+                # Check that details are present and not empty
                 if not hasattr(result, "details") or not result.details:
                     logger.error(f"Missing details dictionary in result for task {task_id}")
-                    result.details = {}
+                    raise ModelRetry("Your response is missing the 'details' dictionary or it's empty. This field is required and must contain comprehensive analysis.")
                 
                 # Check for elements in details
                 if "elements" not in result.details or not result.details["elements"]:
                     logger.warning(f"No elements found in details for task {task_id}")
-                    # Not making this required, but adding the warning to logs
+                    raise ModelRetry("Your response must include an 'elements' array in the details dictionary with comprehensive element analysis.")
+                
+                # Check for other required fields in details
+                required_detail_fields = ["visual_flow", "visual_tone", "color_strategy", "typography_approach", 
+                                         "spacing_technique", "engagement_mechanics", "conversion_elements", 
+                                         "best_practices", "primary_offering_visibility"]
+                
+                missing_fields = [field for field in required_detail_fields if field not in result.details]
+                if missing_fields:
+                    logger.error(f"Missing required detail fields: {', '.join(missing_fields)}")
+                    raise ModelRetry(f"Your response is missing these required fields in the details dictionary: {', '.join(missing_fields)}. Please include all required fields with comprehensive analysis.")
                 
                 logger.info(f"Result validation successful for task {task_id}")
                 return result
@@ -329,6 +351,8 @@ You have been provided with details about the product type this analysis will be
 {json.dumps(product_context, indent=2)}
 
 YOUR RESPONSE MUST INCLUDE ALL FIELDS SPECIFIED IN THE INSTRUCTIONS and be as detailed as possible within each section.
+
+CRITICAL: The 'details' dictionary is the most important part of your analysis and must be COMPREHENSIVE. Include ALL required fields with thorough descriptions. This blueprint will be used directly to recreate ads, so missing details will result in incomplete recreations.
 
 IMPORTANT:
 1. Use terminology that matches the product type (e.g., if analyzing floating elements for a patch product, describe them as "floating patches" not "floating capsules")
