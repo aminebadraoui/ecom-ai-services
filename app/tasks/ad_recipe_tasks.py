@@ -87,15 +87,15 @@ def generate_ad_recipe(self, ad_archive_id: str, image_url: str, sales_url: str,
         # Step 2: Check if ad concept exists in Supabase
         ad_concept_data = supabase_service.get_ad_concept_by_archive_id(ad_archive_id)
         
+        # Import at runtime to avoid circular import
+        from app.tasks.ad_concept_tasks import extract_ad_concept_with_context
+        
         # If not found, generate a new one with product context
         if not ad_concept_data:
             logger.info(f"No existing ad concept found for {ad_archive_id}, generating one...")
             
             # Generate a new subtask ID
             concept_task_id = f"{task_id}_concept"
-            
-            # Import at runtime to avoid circular import
-            from app.tasks.ad_concept_tasks import extract_ad_concept_with_context
             
             # Run ad concept extraction task synchronously with product context
             concept_result = extract_ad_concept_with_context(image_url, sales_page_json, concept_task_id)
