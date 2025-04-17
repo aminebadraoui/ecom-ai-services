@@ -177,6 +177,12 @@ Follow the JSON structure exactly as requested."""
                 
                 # Log the result
                 logger.info(f"Final result data ({task_id}): {json.dumps(result.data.model_dump(), indent=2)}")
+                
+                # Check for empty details instead of enforcing structure
+                if not result.data.details or len(result.data.details) == 0:
+                    logger.error(f"Empty details detected in result for task {task_id}.")
+                    raise Exception("Ad concept analysis failed to generate complete details structure")
+                
                 return result.data
                 
             except UnexpectedModelBehavior as model_error:
@@ -370,6 +376,12 @@ Follow the JSON structure exactly as requested."""
                 
                 # Log the result
                 logger.info(f"Final result data ({task_id}): {json.dumps(result.data.model_dump(), indent=2)}")
+                
+                # Check for empty details instead of enforcing structure
+                if not result.data.details or len(result.data.details) == 0:
+                    logger.error(f"Empty details detected in result for task {task_id}.")
+                    raise Exception("Ad concept analysis failed to generate complete details structure")
+                
                 return result.data
                 
             except UnexpectedModelBehavior as model_error:

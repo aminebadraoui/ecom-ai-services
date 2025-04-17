@@ -108,6 +108,19 @@ def generate_ad_recipe(self, ad_archive_id: str, image_url: str, sales_url: str,
             # Get the ad concept result
             ad_concept_json = concept_task_data.get("result")
             
+            # Debug the ad_concept_json to check for issues
+            logger.info(f"Raw ad_concept_json data type: {type(ad_concept_json)}")
+            logger.info(f"Raw ad_concept_json content: {json.dumps(ad_concept_json, indent=2)}")
+            
+            # Validate structure but don't enforce mock data
+            if not isinstance(ad_concept_json, dict):
+                logger.error(f"Ad concept result is not a dict: {type(ad_concept_json)}")
+                raise Exception(f"Invalid ad concept data format: {type(ad_concept_json)}")
+                
+            if not ad_concept_json.get("details") or not isinstance(ad_concept_json.get("details"), dict):
+                logger.error(f"Ad concept missing details structure")
+                raise Exception(f"Ad concept analysis failed to generate complete details")
+            
             # Verify that the concept has the required detailed analysis
             if not ad_concept_json or not ad_concept_json.get("details") or not ad_concept_json["details"]:
                 logger.error(f"Ad concept for {ad_archive_id} is missing detailed analysis. Regenerating...")
@@ -130,10 +143,46 @@ def generate_ad_recipe(self, ad_archive_id: str, image_url: str, sales_url: str,
             # Use existing ad concept data
             logger.info(f"Using existing ad concept for {ad_archive_id}")
             ad_concept_json = ad_concept_data.get("concept_json")
+            
+            # Debug the existing ad_concept_json
+            logger.info(f"Existing ad_concept_json data type: {type(ad_concept_json)}")
+            logger.info(f"Existing ad_concept_json content: {json.dumps(ad_concept_json, indent=2)}")
+            
+            # Validate structure but don't enforce mock data
+            if not isinstance(ad_concept_json, dict):
+                logger.error(f"Existing ad concept result is not a dict: {type(ad_concept_json)}")
+                raise Exception(f"Invalid existing ad concept data format: {type(ad_concept_json)}")
+                
+            if not ad_concept_json.get("details") or not isinstance(ad_concept_json.get("details"), dict) or len(ad_concept_json.get("details", {})) == 0:
+                logger.error(f"Existing ad concept missing details structure")
+                
+                # Re-attempt with explicit focus on detailed analysis
+                concept_retry_id = f"{task_id}_concept_retry"
+                
+                # Run ad concept extraction task synchronously with product context
+                concept_result = extract_ad_concept_with_context(image_url, sales_page_json, concept_retry_id)
+                
+                # Check if retry was successful
+                concept_retry_data = json.loads(redis_client.get(f"task:{concept_retry_id}"))
+                if concept_retry_data.get("status") != "completed" or not concept_retry_data.get("result", {}).get("details"):
+                    raise Exception(f"Failed to extract complete ad concept details after retry")
+                
+                # Use the retry results
+                ad_concept_json = concept_retry_data.get("result")
+                
+                # Update in Supabase
+                supabase_service.store_ad_concept(ad_archive_id, image_url, ad_concept_json, user_id)
         
         # Step 3: Generate the prompt template
         logger.info(f"Generating ad recipe prompt for {ad_archive_id}")
         
+        # Final validation of ad concept data
+        if not isinstance(ad_concept_json, dict) or not ad_concept_json.get("details") or not ad_concept_json["details"]:
+            raise Exception(f"Cannot generate recipe: Ad concept data is incomplete or missing details dictionary")
+            
+        if not isinstance(ad_concept_json["details"], dict) or "elements" not in ad_concept_json["details"]:
+            raise Exception(f"Cannot generate recipe: Ad concept details are missing required elements array")
+            
         # Format the prompt template
         recipe_prompt = f"""You are an expert ad creative designer. Your task is to recreate a high-converting ad style for a new product by precisely following an existing ad's blueprint:
 
