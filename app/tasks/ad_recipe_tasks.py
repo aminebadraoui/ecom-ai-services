@@ -66,38 +66,7 @@ def generate_ad_recipe(self, ad_archive_id: str, image_url: str, sales_url: str,
     self.update_state(task_id, "processing")
 
     try:
-        # Step 1: Check if ad concept exists in Supabase
-        ad_concept_data = supabase_service.get_ad_concept_by_archive_id(ad_archive_id)
-        
-        # If not found, generate a new one
-        if not ad_concept_data:
-            logger.info(f"No existing ad concept found for {ad_archive_id}, generating one...")
-            
-            # Generate a new subtask ID
-            concept_task_id = f"{task_id}_concept"
-            
-            # Import at runtime to avoid circular import
-            from app.tasks.ad_concept_tasks import extract_ad_concept
-            
-            # Run ad concept extraction task synchronously
-            concept_result = extract_ad_concept(image_url, concept_task_id)
-            
-            # Check if the task was successful
-            concept_task_data = json.loads(redis_client.get(f"task:{concept_task_id}"))
-            if concept_task_data.get("status") != "completed":
-                raise Exception(f"Failed to extract ad concept: {concept_task_data.get('error')}")
-            
-            # Get the ad concept result
-            ad_concept_json = concept_task_data.get("result")
-            
-            # Store in Supabase
-            supabase_service.store_ad_concept(ad_archive_id, image_url, ad_concept_json, user_id)
-        else:
-            # Use existing ad concept data
-            logger.info(f"Using existing ad concept for {ad_archive_id}")
-            ad_concept_json = ad_concept_data.get("concept_json")
-        
-        # Step 2: Extract sales page information
+        # Step 1: Extract sales page information first
         logger.info(f"Extracting sales page information for {sales_url}")
         sales_page_task_id = f"{task_id}_sales"
         
@@ -114,6 +83,37 @@ def generate_ad_recipe(self, ad_archive_id: str, image_url: str, sales_url: str,
         
         # Get the sales page result
         sales_page_json = sales_task_data.get("result")
+        
+        # Step 2: Check if ad concept exists in Supabase
+        ad_concept_data = supabase_service.get_ad_concept_by_archive_id(ad_archive_id)
+        
+        # If not found, generate a new one with product context
+        if not ad_concept_data:
+            logger.info(f"No existing ad concept found for {ad_archive_id}, generating one...")
+            
+            # Generate a new subtask ID
+            concept_task_id = f"{task_id}_concept"
+            
+            # Import at runtime to avoid circular import
+            from app.tasks.ad_concept_tasks import extract_ad_concept_with_context
+            
+            # Run ad concept extraction task synchronously with product context
+            concept_result = extract_ad_concept_with_context(image_url, sales_page_json, concept_task_id)
+            
+            # Check if the task was successful
+            concept_task_data = json.loads(redis_client.get(f"task:{concept_task_id}"))
+            if concept_task_data.get("status") != "completed":
+                raise Exception(f"Failed to extract ad concept: {concept_task_data.get('error')}")
+            
+            # Get the ad concept result
+            ad_concept_json = concept_task_data.get("result")
+            
+            # Store in Supabase
+            supabase_service.store_ad_concept(ad_archive_id, image_url, ad_concept_json, user_id)
+        else:
+            # Use existing ad concept data
+            logger.info(f"Using existing ad concept for {ad_archive_id}")
+            ad_concept_json = ad_concept_data.get("concept_json")
         
         # Step 3: Generate the prompt template
         logger.info(f"Generating ad recipe prompt for {ad_archive_id}")
