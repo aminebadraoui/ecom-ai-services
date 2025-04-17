@@ -473,60 +473,183 @@ def ensure_valid_details_structure(result: Any) -> AdConceptOutput:
     
     logger.info(f"Validating and ensuring valid details structure. Result type: {type(result)}")
     
-    # If the result is already valid, return it
-    if hasattr(result, 'details') and isinstance(result.details, dict) and result.details.get('elements'):
+    # FIRST: Try to dump the whole response data for debugging
+    try:
+        if hasattr(result, 'model_dump'):
+            dump = result.model_dump()
+            logger.info(f"Result model dump: {json.dumps(dump)[:500]}...")
+        elif hasattr(result, 'dict'):
+            dump = result.dict()
+            logger.info(f"Result dict: {json.dumps(dump)[:500]}...")
+    except Exception as e:
+        logger.error(f"Failed to dump result model: {str(e)}")
+    
+    # NEW: Special handling for pydantic_ai.agent.AgentRunResult
+    if hasattr(result, 'message') and hasattr(result.message, 'content'):
+        logger.info("Found message content in AgentRunResult")
+        content = result.message.content
+        
+        # Try to extract JSON from the content
+        try:
+            # First check if it's already valid JSON
+            try:
+                parsed_data = json_lib.loads(content)
+                logger.info("Content is already valid JSON")
+                
+                # Create a new AdConceptOutput object with the parsed data
+                ad_concept = AdConceptOutput(
+                    title=parsed_data.get("title", ""),
+                    summary=parsed_data.get("summary", ""),
+                    details=parsed_data.get("details", {})
+                )
+                
+                # Validate details
+                if not ad_concept.details:
+                    ad_concept.details = create_details_from_partial(parsed_data)
+                
+                logger.info("Successfully created AdConceptOutput from message content")
+                return ad_concept
+                
+            except json_lib.JSONDecodeError:
+                # Try to extract JSON from content using regex
+                logger.info("Content is not valid JSON, trying to extract using regex")
+                json_pattern = r'({[\s\S]*})'
+                match = re.search(json_pattern, content)
+                
+                if match:
+                    potential_json = match.group(1)
+                    logger.info(f"Found potential JSON: {potential_json[:200]}...")
+                    
+                    try:
+                        parsed_data = json_lib.loads(potential_json)
+                        
+                        # Create a new AdConceptOutput object
+                        ad_concept = AdConceptOutput(
+                            title=parsed_data.get("title", ""),
+                            summary=parsed_data.get("summary", ""),
+                            details=parsed_data.get("details", {})
+                        )
+                        
+                        # Validate details
+                        if not ad_concept.details:
+                            ad_concept.details = create_details_from_partial(parsed_data)
+                        
+                        logger.info("Successfully created AdConceptOutput from extracted JSON")
+                        return ad_concept
+                        
+                    except Exception as e:
+                        logger.error(f"Failed to parse extracted potential JSON: {str(e)}")
+                
+                # If regex extraction failed, try another approach with brace counting
+                try:
+                    logger.info("Trying brace counting approach")
+                    start_idx = content.find('{')
+                    if start_idx >= 0:
+                        json_text = content[start_idx:]
+                        brace_count = 0
+                        end_idx = -1
+                        
+                        for i, char in enumerate(json_text):
+                            if char == '{':
+                                brace_count += 1
+                            elif char == '}':
+                                brace_count -= 1
+                                if brace_count == 0:
+                                    end_idx = i
+                                    break
+                        
+                        if end_idx > 0:
+                            extracted_json = json_text[:end_idx+1]
+                            logger.info(f"Extracted JSON using brace counting: {extracted_json[:200]}...")
+                            
+                            parsed_data = json_lib.loads(extracted_json)
+                            
+                            # Create a new AdConceptOutput object
+                            ad_concept = AdConceptOutput(
+                                title=parsed_data.get("title", ""),
+                                summary=parsed_data.get("summary", ""),
+                                details=parsed_data.get("details", {})
+                            )
+                            
+                            # Validate details
+                            if not ad_concept.details:
+                                ad_concept.details = create_details_from_partial(parsed_data)
+                            
+                            logger.info("Successfully created AdConceptOutput from brace-counted JSON")
+                            return ad_concept
+                except Exception as e:
+                    logger.error(f"Failed brace counting approach: {str(e)}")
+        
+        except Exception as e:
+            logger.error(f"Failed to extract JSON from message content: {str(e)}")
+    
+    # Existing code for checking result.data
+    if hasattr(result, 'data') and hasattr(result.data, 'details') and isinstance(result.data.details, dict) and result.data.details.get('elements'):
         required_fields = ["elements", "visual_flow", "visual_tone", "color_strategy", 
                          "typography_approach", "spacing_technique", "engagement_mechanics", 
                          "conversion_elements", "best_practices", "primary_offering_visibility"]
         
-        missing_fields = [field for field in required_fields if field not in result.details]
+        missing_fields = [field for field in required_fields if field not in result.data.details]
         if not missing_fields:
             logger.info("Result already has valid details structure")
-            return result
+            return result.data
     
-    # If we got here, we need to fix the result
-    logger.warning("Result has missing or invalid details structure, attempting to fix")
-    
-    # Try to extract JSON structure from raw data if we have it
-    raw_data = None
-    if hasattr(result, 'raw_data') and result.raw_data:
-        raw_data = result.raw_data
-    elif hasattr(result, '_raw_response') and result._raw_response:
-        raw_data = result._raw_response
-    
-    if raw_data:
-        logger.info(f"Attempting to extract JSON from raw data: {raw_data[:200]}...")
+    # DIRECT ACCESS: Try to get 'details' directly from the result object
+    if hasattr(result, 'details') and isinstance(result.details, dict) and result.details.get('elements'):
+        logger.info("Found valid details structure directly on result object")
         
-        # Try to find and parse a JSON structure within the raw text
-        json_pattern = r'({[\s\S]*})'
-        match = re.search(json_pattern, raw_data)
-        if match:
-            try:
-                extracted_json = match.group(1)
-                parsed_json = json_lib.loads(extracted_json)
-                logger.info(f"Successfully extracted JSON from raw text")
-                
-                # Update result with the extracted data
-                if not hasattr(result, 'details') or not result.details:
-                    if 'details' in parsed_json:
-                        result.details = parsed_json['details']
-                    else:
-                        # Create minimal details structure from extracted data
-                        result.details = create_details_from_partial(parsed_json)
-                        
-                if not hasattr(result, 'title') or not result.title:
-                    result.title = parsed_json.get('title', "Ad Concept Analysis")
-                    
-                if not hasattr(result, 'summary') or not result.summary:
-                    result.summary = parsed_json.get('summary', "Analysis of the advertisement visual structure")
-                
-                return result
-            except Exception as e:
-                logger.error(f"Failed to parse JSON from raw text: {str(e)}")
+        # Create a new AdConceptOutput object
+        ad_concept = AdConceptOutput(
+            title=getattr(result, 'title', "Ad Concept Analysis"),
+            summary=getattr(result, 'summary', "Analysis of advertisement visual structure"),
+            details=result.details
+        )
+        
+        return ad_concept
     
-    # If we couldn't fix it, raise an exception
-    logger.error("Failed to repair result structure")
-    raise ValueError("Could not generate or repair a valid details structure")
+    # If we got here, log all available attributes and values
+    logger.error("Failed to find details structure anywhere. Dumping all attributes:")
+    
+    if hasattr(result, '__dict__'):
+        for key, value in result.__dict__.items():
+            logger.error(f"Attribute {key}: {type(value)}")
+            try:
+                if isinstance(value, dict):
+                    logger.error(f"Dict content: {json.dumps(value)[:200]}...")
+                elif hasattr(value, '__dict__'):
+                    logger.error(f"Object attrs: {dir(value)}")
+            except:
+                pass
+    
+    # If we got here, we've been unsuccessful in repairing the structure.
+    # Fail with a clear error message
+    logger.error("Failed to extract valid JSON details structure from model response")
+    
+    # Include additional debug info about what was attempted
+    if hasattr(result, 'message') and hasattr(result.message, 'content'):
+        content = result.message.content
+        logger.error(f"Raw message content (first 500 chars): {content[:500]}")
+    
+    # Get any title/summary we may have for better error context
+    title_context = ""
+    summary_context = ""
+    
+    if hasattr(result, 'data'):
+        if hasattr(result.data, 'title') and result.data.title:
+            title_context = f"Title: {result.data.title}"
+        if hasattr(result.data, 'summary') and result.data.summary:
+            summary_context = f"Summary: {result.data.summary}"
+    elif hasattr(result, 'title') and result.title:
+        title_context = f"Title: {result.title}"
+    elif hasattr(result, 'summary') and result.summary:
+        summary_context = f"Summary: {result.summary}"
+    
+    error_context = f"{title_context} {summary_context}".strip()
+    error_msg = "Could not generate a valid details structure. Model failed to produce properly formatted JSON."
+    if error_context:
+        error_msg += f" Partial data: {error_context}"
+        
+    raise ValueError(error_msg)
 
 def create_details_from_partial(data: Dict) -> Dict:
     """Creates a minimal but complete details structure from partial data"""
