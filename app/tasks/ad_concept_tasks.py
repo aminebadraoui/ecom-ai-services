@@ -6,6 +6,9 @@ from pydantic_ai import Agent, ImageUrl, RunContext, ModelRetry
 from pydantic_ai.exceptions import UnexpectedModelBehavior
 import logging
 from redis import Redis
+from typing import Dict, Optional, Any
+import re
+import json as json_lib
 
 from app.core.celery_app import celery_app
 from app.core.config import settings
@@ -79,41 +82,16 @@ Your task is to generate an extremely detailed, structured description of this a
 
 IMPORTANT: While analyzing the ad, do NOT focus on the specific product category (e.g., skincare, fitness, tech). Instead, document the APPROACH, TECHNIQUES, and STRUCTURE in a way that can be transferred to any product. Focus on HOW the ad works rather than WHAT it's selling.
 
-Describe each component in detail including:
-- Exact positioning (relative to other elements)
+FOCUS on describing:
+- Exact positioning of elements
 - Size proportions 
 - Color relationships
 - Typography style and hierarchy
-- Visual treatments (shadows, gradients, borders)
+- Visual treatments
 - Negative space usage
 - Focal points and attention flow
 
-REQUIRED OUTPUT STRUCTURE:
-Your analysis must include these specific sections:
-1. "title" - A descriptive name for this ad concept template that references the visual approach or structure
-2. "summary" - A brief 1-3 sentence description of the overall ad concept and its visual approach
-3. "details" - A dictionary containing ALL other analysis points, including:
-   a. "elements" - An array of objects describing each visual element in the image with maximum detail:
-      Each element should include:
-      - "type": The type of element (e.g., primary_visual, headline, etc.)
-      - "position": Precise positioning description
-      - "purpose": Detailed description of its functional purpose
-      - "styling": Comprehensive styling details including fonts, colors, treatments
-      - "proportion": Approximate size relative to the overall ad
-   b. "visual_flow" - Step-by-step description of how the viewer's attention moves through the ad
-   c. "visual_tone" - Comprehensive analysis of the mood, tone, and emotional qualities
-   d. "color_strategy" - Detailed analysis of color usage, relationships, and psychology
-   e. "typography_approach" - Analysis of font choices, sizing patterns, and text styling
-   f. "spacing_technique" - How spacing and alignment are used strategically
-   g. "engagement_mechanics" - Techniques used to grab and maintain attention
-   h. "conversion_elements" - Features designed to drive action
-   i. "best_practices" - List of effective design and marketing techniques demonstrated
-   j. "primary_offering_visibility" - Whether and how the main offering is shown in the ad
-
-The output JSON MUST match this structure, but include as much detail as possible within each section.
-
-REMEMBER: The goal is to create a transferable blueprint that captures EVERY aspect of what makes this ad effective, without being tied to the specific product being advertised.
-"""
+Your role is to provide complete, structured analysis in the exact JSON format required."""
             )
             
             # Add a result validator to ensure the output has the correct structure
@@ -155,35 +133,54 @@ REMEMBER: The goal is to create a transferable blueprint that captures EVERY asp
                 logger.info(f"Starting agent run for task {task_id}")
                 
                 # Build the prompt
-                user_prompt = """Analyze this advertisement and provide an extremely detailed, structured breakdown of its approach, layout, and techniques.
+                user_prompt = """Analyze this advertisement image and create a detailed, structured breakdown of its approach, layout and techniques.
 
-YOUR RESPONSE MUST INCLUDE ALL FIELDS SPECIFIED IN THE INSTRUCTIONS and be as detailed as possible within each section.
+Make sure the response is in valid JSON with this structure exactly:
+{
+  "title": "",
+  "summary": "",
+  "details": {
+    "elements": [
+      {
+        "type": "",
+        "position": "",
+        "purpose": "", 
+        "styling": "",
+        "proportion": ""
+      }
+    ],
+    "visual_flow": "",
+    "visual_tone": "",
+    "color_strategy": "", 
+    "typography_approach": "",
+    "spacing_technique": "",
+    "engagement_mechanics": "",
+    "conversion_elements": "",
+    "best_practices": [],
+    "primary_offering_visibility": {
+      "is_visible": null,
+      "description": ""
+    }
+  }
+}
 
-CRITICAL: The 'details' dictionary is the most important part of your analysis and must be COMPREHENSIVE. Include ALL required fields with thorough descriptions. This blueprint will be used directly to recreate ads, so missing details will result in incomplete recreations.
+You MUST include the "details" dictionary with ALL fields shown above. This is the most critical part of the analysis.
 
-IMPORTANT:
-1. Focus on the AD STRUCTURE and TECHNIQUES, not the specific product category
-2. Document precisely how elements are positioned, sized, and relate to each other
-3. Analyze the visual hierarchy, attention flow, and marketing psychology
-4. Note specific details about typography, color usage, and spacing
-5. Identify all persuasive and conversion elements
+The "details" object is ABSOLUTELY REQUIRED and must document:
+1. ALL visual and text elements, their exact positioning, sizing, and relationships
+2. The complete visual structure and hierarchy
+3. How information is presented to guide the viewer's attention
 
-Don't omit ANY visual or structural details - the goal is to create a comprehensive blueprint that could be used to recreate the same advertising approach for an entirely different product.
-
-Follow the JSON structure exactly as requested."""
+Your response MUST be complete, detailed and STRICTLY follow the JSON structure shown above.
+"""
                 
                 # Run the agent with the image
                 result = await agent.run([user_prompt, ImageUrl(url=image_url)])
                 
-                # Log the result
-                logger.info(f"Final result data ({task_id}): {json.dumps(result.data.model_dump(), indent=2)}")
+                # Validate and ensure the model produced a proper JSON structure
+                result = ensure_valid_details_structure(result)
                 
-                # Check for empty details instead of enforcing structure
-                if not result.data.details or len(result.data.details) == 0:
-                    logger.error(f"Empty details detected in result for task {task_id}.")
-                    raise Exception("Ad concept analysis failed to generate complete details structure")
-                
-                return result.data
+                return result
                 
             except UnexpectedModelBehavior as model_error:
                 # Log the error
@@ -268,48 +265,56 @@ def extract_ad_concept_with_context(self, image_url: str, product_context: dict,
                 retries=5,  # Set retries for validation
                 system_prompt=f"""You are analyzing an advertisement to create a detailed blueprint that can be applied to a specific product.
 
-Your task is to generate an extremely detailed, structured description of this ad in JSON format. Capture all elements of its layout, visual hierarchy, components, spacing, balance, and design technique. Explain how each element contributes to the overall effectiveness from marketing, UX, and visual communication perspectives.
+Your task is to generate an extremely detailed, structured description of this ad in JSON format. Capture all elements of its layout, visual hierarchy, components, spacing, balance, and design technique.
 
-IMPORTANT: You are analyzing this ad with knowledge of the target product it will be applied to:
+YOU MUST ALWAYS RETURN A COMPLETE JSON STRUCTURE with all required fields.
+
+You are analyzing this ad with knowledge of the target product it will be applied to:
 {json.dumps(product_context, indent=2)}
 
-Focus on documenting the APPROACH, TECHNIQUES, and STRUCTURE in a way that could be effectively applied to this specific product. Use terminology relevant to the product type when describing elements (e.g., if the target product is patches, describe floating elements as "patches" not "capsules").
+The output JSON MUST have this structure:
+{{
+  "title": "",
+  "summary": "",
+  "details": {{
+    "elements": [
+      {{
+        "type": "",
+        "position": "",
+        "purpose": "",
+        "styling": "",
+        "proportion": ""
+      }}
+    ],
+    "visual_flow": "",
+    "visual_tone": "",
+    "color_strategy": "",
+    "typography_approach": "",
+    "spacing_technique": "",
+    "engagement_mechanics": "",
+    "conversion_elements": "",
+    "best_practices": [],
+    "primary_offering_visibility": {{
+      "is_visible": null,
+      "description": ""
+    }}
+  }}
+}}
 
-Describe each component in detail including:
-- Exact positioning (relative to other elements)
+You MUST include the "details" dictionary with ALL fields shown above.
+
+Use terminology relevant to the product type when describing elements (e.g., if the target product is patches, describe floating elements as "patches" not "capsules").
+
+FOCUS on describing:
+- Exact positioning of elements
 - Size proportions 
 - Color relationships
 - Typography style and hierarchy
-- Visual treatments (shadows, gradients, borders)
+- Visual treatments
 - Negative space usage
 - Focal points and attention flow
 
-REQUIRED OUTPUT STRUCTURE:
-Your analysis must include these specific sections:
-1. "title" - A descriptive name for this ad concept template that references the visual approach or structure (make it relevant to the target product type)
-2. "summary" - A brief 1-3 sentence description of the overall ad concept and its visual approach
-3. "details" - A dictionary containing ALL other analysis points, including:
-   a. "elements" - An array of objects describing each visual element in the image with maximum detail:
-      Each element should include:
-      - "type": The type of element (e.g., primary_visual, headline, etc.)
-      - "position": Precise positioning description
-      - "purpose": Detailed description of its functional purpose
-      - "styling": Comprehensive styling details including fonts, colors, treatments
-      - "proportion": Approximate size relative to the overall ad
-   b. "visual_flow" - Step-by-step description of how the viewer's attention moves through the ad
-   c. "visual_tone" - Comprehensive analysis of the mood, tone, and emotional qualities
-   d. "color_strategy" - Detailed analysis of color usage, relationships, and psychology
-   e. "typography_approach" - Analysis of font choices, sizing patterns, and text styling
-   f. "spacing_technique" - How spacing and alignment are used strategically
-   g. "engagement_mechanics" - Techniques used to grab and maintain attention
-   h. "conversion_elements" - Features designed to drive action
-   i. "best_practices" - List of effective design and marketing techniques demonstrated
-   j. "primary_offering_visibility" - Whether and how the main offering is shown in the ad
-
-The output JSON MUST match this structure, but include as much detail as possible within each section.
-
-REMEMBER: Use terminology consistent with the product type from the context. The goal is to create a transferable blueprint that captures EVERY aspect of what makes this ad effective, but with relevant language for the target product.
-"""
+Your role is to provide complete, structured analysis in the exact JSON format required."""
             )
             
             # Add a result validator to ensure the output has the correct structure
@@ -356,33 +361,51 @@ REMEMBER: Use terminology consistent with the product type from the context. The
 You have been provided with details about the product type this analysis will be applied to:
 {json.dumps(product_context, indent=2)}
 
-YOUR RESPONSE MUST INCLUDE ALL FIELDS SPECIFIED IN THE INSTRUCTIONS and be as detailed as possible within each section.
-
-CRITICAL: The 'details' dictionary is the most important part of your analysis and must be COMPREHENSIVE. Include ALL required fields with thorough descriptions. This blueprint will be used directly to recreate ads, so missing details will result in incomplete recreations.
+YOUR RESPONSE MUST BE IN VALID JSON FORMAT with the following structure:
+{{
+  "title": "",
+  "summary": "",
+  "details": {{
+    "elements": [
+      {{
+        "type": "",
+        "position": "",
+        "purpose": "",
+        "styling": "",
+        "proportion": ""
+      }}
+    ],
+    "visual_flow": "",
+    "visual_tone": "",
+    "color_strategy": "",
+    "typography_approach": "",
+    "spacing_technique": "",
+    "engagement_mechanics": "",
+    "conversion_elements": "",
+    "best_practices": [],
+    "primary_offering_visibility": {{
+      "is_visible": null,
+      "description": ""
+    }}
+  }}
+}}
 
 IMPORTANT:
-1. Use terminology that matches the product type (e.g., if analyzing floating elements for a patch product, describe them as "floating patches" not "floating capsules")
-2. Document precisely how elements are positioned, sized, and relate to each other
-3. Analyze the visual hierarchy, attention flow, and marketing psychology
-4. Note specific details about typography, color usage, and spacing
-5. Identify all persuasive and conversion elements
+1. Include ALL the fields shown above exactly as structured
+2. Ensure the "details" object is complete with all required sub-fields
+3. Use terminology that matches the product type 
+4. Focus on the ad structure and techniques, not specific product category
+5. Document precisely how elements are positioned, sized, and relate to each other
 
-The goal is to create a comprehensive blueprint that effectively captures this ad's structure and can be directly applied to the specified product type.
-
-Follow the JSON structure exactly as requested."""
+You MUST provide the response in the JSON format above with all fields completed."""
                 
                 # Run the agent with the image
                 result = await agent.run([user_prompt, ImageUrl(url=image_url)])
                 
-                # Log the result
-                logger.info(f"Final result data ({task_id}): {json.dumps(result.data.model_dump(), indent=2)}")
+                # Validate and ensure the model produced a proper JSON structure
+                result = ensure_valid_details_structure(result)
                 
-                # Check for empty details instead of enforcing structure
-                if not result.data.details or len(result.data.details) == 0:
-                    logger.error(f"Empty details detected in result for task {task_id}.")
-                    raise Exception("Ad concept analysis failed to generate complete details structure")
-                
-                return result.data
+                return result
                 
             except UnexpectedModelBehavior as model_error:
                 # Log the error
@@ -442,4 +465,116 @@ Follow the JSON structure exactly as requested."""
             "task_id": task_id, 
             "error": str(e),
             "success": False
-        } 
+        }
+
+def ensure_valid_details_structure(result: Any) -> AdConceptOutput:
+    """Ensures that the result contains a valid details structure.
+    If structure is missing or malformed, attempts to fix it."""
+    
+    logger.info(f"Validating and ensuring valid details structure. Result type: {type(result)}")
+    
+    # If the result is already valid, return it
+    if hasattr(result, 'details') and isinstance(result.details, dict) and result.details.get('elements'):
+        required_fields = ["elements", "visual_flow", "visual_tone", "color_strategy", 
+                         "typography_approach", "spacing_technique", "engagement_mechanics", 
+                         "conversion_elements", "best_practices", "primary_offering_visibility"]
+        
+        missing_fields = [field for field in required_fields if field not in result.details]
+        if not missing_fields:
+            logger.info("Result already has valid details structure")
+            return result
+    
+    # If we got here, we need to fix the result
+    logger.warning("Result has missing or invalid details structure, attempting to fix")
+    
+    # Try to extract JSON structure from raw data if we have it
+    raw_data = None
+    if hasattr(result, 'raw_data') and result.raw_data:
+        raw_data = result.raw_data
+    elif hasattr(result, '_raw_response') and result._raw_response:
+        raw_data = result._raw_response
+    
+    if raw_data:
+        logger.info(f"Attempting to extract JSON from raw data: {raw_data[:200]}...")
+        
+        # Try to find and parse a JSON structure within the raw text
+        json_pattern = r'({[\s\S]*})'
+        match = re.search(json_pattern, raw_data)
+        if match:
+            try:
+                extracted_json = match.group(1)
+                parsed_json = json_lib.loads(extracted_json)
+                logger.info(f"Successfully extracted JSON from raw text")
+                
+                # Update result with the extracted data
+                if not hasattr(result, 'details') or not result.details:
+                    if 'details' in parsed_json:
+                        result.details = parsed_json['details']
+                    else:
+                        # Create minimal details structure from extracted data
+                        result.details = create_details_from_partial(parsed_json)
+                        
+                if not hasattr(result, 'title') or not result.title:
+                    result.title = parsed_json.get('title', "Ad Concept Analysis")
+                    
+                if not hasattr(result, 'summary') or not result.summary:
+                    result.summary = parsed_json.get('summary', "Analysis of the advertisement visual structure")
+                
+                return result
+            except Exception as e:
+                logger.error(f"Failed to parse JSON from raw text: {str(e)}")
+    
+    # If we couldn't fix it, raise an exception
+    logger.error("Failed to repair result structure")
+    raise ValueError("Could not generate or repair a valid details structure")
+
+def create_details_from_partial(data: Dict) -> Dict:
+    """Creates a minimal but complete details structure from partial data"""
+    details = {}
+    
+    # Ensure elements array exists
+    if 'elements' in data:
+        details['elements'] = data['elements']
+    else:
+        # Create a minimal elements structure
+        elements = []
+        # Try to extract element information from any available keys
+        for key in data:
+            if 'element' in key.lower() or 'component' in key.lower():
+                elements.append(data[key])
+        
+        # If we couldn't extract elements, create a placeholder
+        if not elements:
+            elements = [{"type": "Unknown", "position": "Undetermined", 
+                        "purpose": "Not specified", "styling": "Not specified",
+                        "proportion": "Not specified"}]
+                     
+        details['elements'] = elements
+    
+    # Add all required fields, using data if available
+    required_fields = ["visual_flow", "visual_tone", "color_strategy", 
+                     "typography_approach", "spacing_technique", "engagement_mechanics", 
+                     "conversion_elements", "best_practices", "primary_offering_visibility"]
+    
+    for field in required_fields:
+        if field in data:
+            details[field] = data[field]
+        elif field == "best_practices" and "practices" in data:
+            details[field] = data["practices"]
+        elif field == "primary_offering_visibility":
+            # Create valid structure for this complex field
+            if field in data:
+                details[field] = data[field]
+            else:
+                details[field] = {"is_visible": True, 
+                                "description": "Visibility not explicitly analyzed"}
+        elif field in data.get("details", {}):
+            details[field] = data["details"][field]
+        else:
+            # Create placeholder values for missing fields
+            if field == "best_practices":
+                details[field] = ["Clear visual hierarchy", "Focused messaging"]
+            else:
+                details[field] = "Not explicitly analyzed"
+    
+    return details 

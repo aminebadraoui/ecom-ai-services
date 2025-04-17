@@ -125,17 +125,21 @@ def generate_ad_recipe(self, ad_archive_id: str, image_url: str, sales_url: str,
             if not ad_concept_json or not ad_concept_json.get("details") or not ad_concept_json["details"]:
                 logger.error(f"Ad concept for {ad_archive_id} is missing detailed analysis. Regenerating...")
                 
-                # Re-attempt with explicit focus on detailed analysis
-                concept_retry_id = f"{task_id}_concept_retry"
-                concept_result = extract_ad_concept_with_context(image_url, sales_page_json, concept_retry_id)
-                
-                # Check if retry was successful
-                concept_retry_data = json.loads(redis_client.get(f"task:{concept_retry_id}"))
-                if concept_retry_data.get("status") != "completed" or not concept_retry_data.get("result", {}).get("details"):
-                    raise Exception(f"Failed to extract complete ad concept details after retry")
-                
-                # Use the retry results
-                ad_concept_json = concept_retry_data.get("result")
+                try:
+                    # Re-attempt with explicit focus on detailed analysis
+                    concept_retry_id = f"{task_id}_concept_retry"
+                    concept_result = extract_ad_concept_with_context(image_url, sales_page_json, concept_retry_id)
+                    
+                    # Check if retry was successful
+                    concept_retry_data = json.loads(redis_client.get(f"task:{concept_retry_id}"))
+                    if concept_retry_data.get("status") != "completed" or not concept_retry_data.get("result", {}).get("details"):
+                        raise Exception(f"Failed to extract complete ad concept details after retry")
+                    
+                    # Use the retry results
+                    ad_concept_json = concept_retry_data.get("result")
+                except Exception as e:
+                    logger.error(f"Error regenerating new ad concept: {str(e)}")
+                    raise Exception(f"Failed to generate valid ad concept structure after multiple attempts: {str(e)}")
             
             # Store in Supabase
             supabase_service.store_ad_concept(ad_archive_id, image_url, ad_concept_json, user_id)
@@ -156,22 +160,26 @@ def generate_ad_recipe(self, ad_archive_id: str, image_url: str, sales_url: str,
             if not ad_concept_json.get("details") or not isinstance(ad_concept_json.get("details"), dict) or len(ad_concept_json.get("details", {})) == 0:
                 logger.error(f"Existing ad concept missing details structure")
                 
-                # Re-attempt with explicit focus on detailed analysis
-                concept_retry_id = f"{task_id}_concept_retry"
-                
-                # Run ad concept extraction task synchronously with product context
-                concept_result = extract_ad_concept_with_context(image_url, sales_page_json, concept_retry_id)
-                
-                # Check if retry was successful
-                concept_retry_data = json.loads(redis_client.get(f"task:{concept_retry_id}"))
-                if concept_retry_data.get("status") != "completed" or not concept_retry_data.get("result", {}).get("details"):
-                    raise Exception(f"Failed to extract complete ad concept details after retry")
-                
-                # Use the retry results
-                ad_concept_json = concept_retry_data.get("result")
-                
-                # Update in Supabase
-                supabase_service.store_ad_concept(ad_archive_id, image_url, ad_concept_json, user_id)
+                try:
+                    # Re-attempt with explicit focus on detailed analysis
+                    concept_retry_id = f"{task_id}_concept_retry"
+                    
+                    # Run ad concept extraction task synchronously with product context
+                    concept_result = extract_ad_concept_with_context(image_url, sales_page_json, concept_retry_id)
+                    
+                    # Check if retry was successful
+                    concept_retry_data = json.loads(redis_client.get(f"task:{concept_retry_id}"))
+                    if concept_retry_data.get("status") != "completed" or not concept_retry_data.get("result", {}).get("details"):
+                        raise Exception(f"Failed to extract complete ad concept details after retry")
+                    
+                    # Use the retry results
+                    ad_concept_json = concept_retry_data.get("result")
+                    
+                    # Update in Supabase
+                    supabase_service.store_ad_concept(ad_archive_id, image_url, ad_concept_json, user_id)
+                except Exception as e:
+                    logger.error(f"Error regenerating ad concept: {str(e)}")
+                    raise Exception(f"Failed to generate valid ad concept structure for existing concept: {str(e)}")
         
         # Step 3: Generate the prompt template
         logger.info(f"Generating ad recipe prompt for {ad_archive_id}")
